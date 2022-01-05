@@ -24,7 +24,7 @@ router.get('/', (req, res, next) => {
 })
 
 // 3. 处理路由
-router.get('/async123', async (req, res, next) => {
+router.get('/async', async (req, res, next) => {
     // 4. 业务处理（异步）
     await sleep(3000)
     const result = {

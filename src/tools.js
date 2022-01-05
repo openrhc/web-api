@@ -82,7 +82,7 @@ export function readFile(file = '') {
 
 
 /**
- * Promise封装的读取文件操作
+ * Promise封装的写入文件操作
  * @param {String} file 文件路径
  * @param {String} data 文件内容
  */
