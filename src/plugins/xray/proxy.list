@@ -1,0 +1,9 @@
+domain:dns.adguard.com
+domain:cloudflare-dns.com
+domain:dns.google
+domain:tiktok.com
+domain:tiktokv.com
+domain:tiktokcdn.com
+domain:msftconnecttest.com
+domain:translate.googleapis.com
+domain:geosite:geolocation-!cn

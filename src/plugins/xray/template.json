@@ -1,0 +1,214 @@
+{
+    "api": {
+        "tag": "api",
+        "services": [
+            "HandlerService",
+            "LoggerService",
+            "StatsService"
+        ]
+    },
+    "stats": {},
+    "log": {
+        "loglevel": "warning",
+        "dnsLog": false,
+        "access": "/run/log/xray_access.log",
+        "error": "/run/log/xray_error.log"
+    },
+    "fakedns": [
+        {
+            "ipPool": "198.18.0.0/15",
+            "poolSize": 65535
+        }
+    ],
+    "dns": {
+        "queryStrategy": "UseIPv4",
+        "servers": [
+            {
+                "address": "fakedns",
+                "domains": [
+                    "geosite:cn"
+                ]
+            },
+            "https://cloudflare-dns.com/dns-query",
+            {
+                "address": "https+local://dns.alidns.com/dns-query",
+                "skipFallback": true,
+                "domains": [
+                    "geosite:cn"
+                ],
+                "expectIPs": [
+                    "geoip:cn"
+                ]
+            },
+            "localhost"
+        ]
+    },
+    "inbounds": [
+        {
+            "tag": "all-in",
+            "port": 12345,
+            "protocol": "dokodemo-door",
+            "settings": {
+                "network": "tcp,udp",
+                "udp": true,
+                "followRedirect": true
+            },
+            "sniffing": {
+                "enabled": true,
+                "destOverride": [
+                    "http",
+                    "tls",
+                    "fakedns"
+                ]
+            },
+            "streamSettings": {
+                "sockopt": {
+                    "tproxy": "tproxy"
+                }
+            }
+        },
+        {
+            "tag": "api",
+            "listen": "127.0.0.1",
+            "port": 10807,
+            "protocol": "dokodemo-door",
+            "settings": {
+                "address": "127.0.0.1"
+            }
+        },
+        {
+            "port": 10808,
+            "protocol": "http",
+            "sniffing": {
+                "enabled": true,
+                "destOverride": [
+                    "http",
+                    "tls"
+                ]
+            },
+            "settings": {
+                "allowTransparent": true
+            }
+        },
+        {
+            "port": 10809,
+            "protocol": "socks",
+            "sniffing": {
+                "enabled": false,
+                "destOverride": [
+                    "http",
+                    "tls"
+                ]
+            },
+            "settings": {
+                "auth": "noauth",
+                "udp": true
+            }
+        },
+        {
+            "tag": "xray-in",
+            "port": 10810,
+            "protocol": "http",
+            "sniffing": {
+                "enabled": true,
+                "destOverride": [
+                    "http",
+                    "tls"
+                ]
+            },
+            "settings": {
+                "allowTransparent": true
+            }
+        },
+        {
+            "tag": "dns-in",
+            "port": 53,
+            "protocol": "dokodemo-door",
+            "settings": {
+                "address": "8.8.8.8",
+                "network": "tcp,udp",
+                "port": 53
+            }
+        }
+    ],
+    "outbounds": [
+        {
+            "tag": "direct",
+            "protocol": "freedom",
+            "settings": {
+                "domainStrategy": "UseIPv4"
+            },
+            "streamSettings": {
+                "sockopt": {
+                    "mark": 2
+                }
+            }
+        },
+        {
+            "protocol": "blackhole",
+            "settings": {
+                "response": {
+                    "type": "http"
+                }
+            },
+            "tag": "block"
+        },
+        {
+            "protocol": "dns",
+            "tag": "dns-out",
+            "proxySettings": {
+                "tag": "proxy"
+            }
+        }
+    ],
+    "routing": {
+        "domainMatcher": "mph",
+        "domainStrategy": "IPIfNonMatch",
+        "rules": [
+            {
+                "inboundTag": [
+                    "api"
+                ],
+                "outboundTag": "api",
+                "type": "field",
+                "desp": "内置api路由"
+            },
+            {
+                "inboundTag": [
+                    "xray-in"
+                ],
+                "outboundTag": "xray-out",
+                "type": "field",
+                "desp": "内置延迟、网速测试路由"
+            },
+            {
+                "inboundTag": [
+                    "dns-in"
+                ],
+                "outboundTag": "dns-out",
+                "type": "field",
+                "desp": "内置DNS服务器路由"
+            },
+            {
+                "type": "field",
+                "port": 123,
+                "outboundTag": "direct",
+                "desp": "内置NTP路由"
+            },
+            {
+                "type": "field",
+                "domain": [
+                    "geosite:category-ads-all"
+                ],
+                "outboundTag": "block",
+                "desp": "内置去广告路由"
+            },
+            {
+                "type": "field",
+                "protocol": "bittorrent",
+                "outboundTag": "direct",
+                "desp": "内置BT直连路由"
+            }
+        ]
+    }
+}

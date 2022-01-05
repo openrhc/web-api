@@ -1,0 +1,17 @@
+{
+  "name": "web-api",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "axios": "^0.21.4",
+    "body-parser": "^1.19.0",
+    "chokidar": "^3.5.2",
+    "express": "^4.17.1",
+    "node-cron": "^3.0.0"
+  },
+  "devDependencies": {
+    "os-utils": "^0.0.14"
+  }
+}
