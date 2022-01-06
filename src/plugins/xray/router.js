@@ -5,16 +5,25 @@ const router = Router()
 
 // 获取节点
 router.get('/nodes', (req, res) => {
-    let nodes = xray.getNodes().map(v => {
+    let nodes = xray.getNodes()
+    nodes = nodes.map(v => {
         return {
             proto: v.proto,
             name: v.name,
             from: v.from,
             delay: v.delay,
             speed: v.speed,
+            tips: v.tips,
             original: v.original,
         }
     })
+    const mainnode = xray.getMainNode()
+    if (mainnode.name) {
+        const a = nodes.find(n => n.name === mainnode.name)
+        if (a) {
+            a.active = true
+        }
+    }
     res.json({ code: 0, data: nodes })
 })
 
@@ -193,13 +202,16 @@ router.get('/blocklist/set', async (req, res) => {
 })
 
 // 设置主节点
-router.get('/mainnode/set', (req, res) => {
+router.get('/mainnode/set', async (req, res) => {
     const { id } = req.query
     if (!id) {
         return res.json({ code: -1, msg: '缺少参数' })
     }
-    xray.setMainNode(Number(id))
-    res.json({ code: 0, msg: '设置成功' })
+    const [err, msg] = await xray.setMainNode(Number(id))
+    if (err) {
+        return res.json({ code: 0, msg: err.message })
+    }
+    res.json({ code: 0, msg })
 })
 
 // 保存配置文件
@@ -236,6 +248,15 @@ router.get('/service/restart', async (req, res) => {
         return res.json({ code: -1, msg: err.message })
     }
     res.json({ code: 0, msg: '重启成功' })
+})
+
+// 服务状态
+router.get('/service/status', async (req, res) => {
+    const [err, status] = await xray.statusXray()
+    if (err) {
+        return res.json({ code: -1, msg: err.message })
+    }
+    res.json({ code: 0, data: status })
 })
 
 export default router

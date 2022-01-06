@@ -86,6 +86,29 @@ export function restartXray() {
 }
 
 /**
+ * 获取服务状态
+ */
+export function statusXray() {
+    return new Promise(async resolve => {
+        // 是否在运行
+        const [err, isActive] = await tools.exec('systemctl', ['is-active', config.SERVICE_NAME])
+        if (err) {
+            return resolve([err, null])
+        }
+        // 是否自启动
+        const [err1, isEnabled] = await tools.exec('systemctl', ['is-enabled', config.SERVICE_NAME])
+        if (err1) {
+            return resolve([err1, null])
+        }
+        const status = {
+            active: isActive.trim() === 'active',
+            enabled: isEnabled.trim() === 'enabled'
+        }
+        resolve([null, status])
+    })
+}
+
+/**
  * 更新订阅
  * @param {*} i 索引
  * @returns 
@@ -132,13 +155,13 @@ export function delayTest(index) {
             return resolve([new Error('超出范围'), null])
         }
         // 删除一个outbound
-        const [err1, res1] = await utils.delOutbound(nodes[index].outbound)
+        const [err1, res1] = await utils.delOutbound(nodes[index].outbound, 'xray-out')
         if (err1) {
             console.log(err1)
             return resolve([err1, null])
         }
         // 新增一个outbound
-        const [err2, res2] = await utils.addOutbound(nodes[index].outbound)
+        const [err2, res2] = await utils.addOutbound(nodes[index].outbound, 'xray-out')
         if (err2) {
             console.log(err2)
             return resolve([err2, null])
@@ -164,12 +187,12 @@ export function speedTest(index) {
             return resolve([new Error('超出范围'), null])
         }
         // 删除一个outbound
-        const [err1, res1] = await utils.delOutbound(nodes[index].outbound)
+        const [err1, res1] = await utils.delOutbound(nodes[index].outbound, 'xray-out')
         if (err1) {
             return resolve([err1, null])
         }
         // 新增一个outbound
-        const [err2, res2] = await utils.addOutbound(nodes[index].outbound)
+        const [err2, res2] = await utils.addOutbound(nodes[index].outbound, 'xray-out')
         if (err2) {
             return resolve([err2, null])
         }
@@ -195,31 +218,35 @@ export function testNode(index) {
             return resolve([new Error('超出范围'), null])
         }
         // 删除一个outbound
-        const [err1, res1] = await utils.delOutbound(nodes[index].outbound)
+        const [err1, res1] = await utils.delOutbound(nodes[index].outbound, 'xray-out')
         if (err1) {
             console.log(err1)
             return resolve([err1, null])
         }
         // 新增一个outbound
-        const [err2, res2] = await utils.addOutbound(nodes[index].outbound)
+        const [err2, res2] = await utils.addOutbound(nodes[index].outbound, 'xray-out')
         if (err2) {
             console.log(err2)
             return resolve([err2, null])
         }
+        nodes[index].tips = 'Loading'
         // 调用axios测延迟
         const [err3, res3] = await utils.getDelay(config.DELAYTEST_URL, 10000)
         if (err3) {
             console.log(err3)
+            nodes[index].tips = err3.message
             return resolve([err3, null])
         }
         // 调用axios测速度
         const [err4, res4] = await utils.getSpeed(config.SPEEDTEST_URL, config.SPEEDTEST_URL_SIZE, 20000)
         if (err4) {
             console.log(err4)
+            nodes[index].tips = err4.message
             return resolve([err4, null])
         }
         nodes[index].delay = res3
         nodes[index].speed = res4
+        nodes[index].tips = ''
         resolve([null, { delay: res3, speed: res4 }])
     })
 }
@@ -548,10 +575,26 @@ export function getMainNode() {
 
 /**
  * 设置主节点
- * @param {*} i 索引
+ * @param {*} index 索引
  */
-export function setMainNode(i) {
-    if (i >= 0 && i < nodes.length) {
-        mainNode = nodes[i]
-    }
+export function setMainNode(index) {
+    return new Promise(async (resolve) => {
+        if (index < 0 || index >= nodes.length) {
+            return resolve([new Error('超出范围'), null])
+        }
+        mainNode = nodes[index]
+        // 删除原有proxy节点
+        const [err1, res1] = await utils.delOutbound(mainNode.outbound, 'proxy')
+        if (err1) {
+            console.log(err1)
+            return resolve([err1, null])
+        }
+        // 新增proxy节点
+        const [err2, res2] = await utils.addOutbound(mainNode.outbound, 'proxy')
+        if (err2) {
+            console.log(err2)
+            return resolve([err2, null])
+        }
+        resolve([null, '设置成功'])
+    })
 }

@@ -121,6 +121,7 @@ export function parseNodes(string, from) {
             from,
             delay: 0,
             speed: 0,
+            tips: '',
             outbound,
             original: n
         })
@@ -132,15 +133,16 @@ export function parseNodes(string, from) {
  * 操作outbound
  * @param {string} action 操作：ado rmo
  * @param {object} outbound 对象
+ * @param {string} tag 出口tag
  * @returns 
  */
-function doOutbound(action, outbound) {
+function doOutbound(action, outbound, tag) {
     return new Promise(async resolve => {
         const c = {
             outbounds: [
                 {
                     ...outbound,
-                    tag: 'xray-out'
+                    tag
                 }
             ]
         }
@@ -161,8 +163,8 @@ function doOutbound(action, outbound) {
  * @param {object} outbound 
  * @returns 
  */
-export function delOutbound(outbound) {
-    return doOutbound('rmo', outbound)
+export function delOutbound(outbound, tag) {
+    return doOutbound('rmo', outbound, tag)
 }
 
 /**
@@ -170,8 +172,8 @@ export function delOutbound(outbound) {
  * @param {object} outbound 
  * @returns 
  */
-export function addOutbound(outbound) {
-    return doOutbound('ado', outbound)
+export function addOutbound(outbound, tag) {
+    return doOutbound('ado', outbound, tag)
 }
 
 /**

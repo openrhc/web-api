@@ -52,9 +52,9 @@ export const EXCLUDE_KEYWORDS = [
     '更新于',
     '剩余流量',
     '过期时间',
-    '狮城',
-    '首尔',
-    '圣荷西'
+    // '狮城',
+    // '首尔',
+    // '圣荷西'
 ];
 
 // 不添加以下协议的节点，参考值：'Shadowsocks', 'Trojan', 'VMess',

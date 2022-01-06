@@ -44,18 +44,18 @@
     "value": "bittorrent"
   },
   {
-    "outboundTag": "custom",
-    "desp": "锚点: 上面的直连/代理/拦截列表将被加入在这里",
-    "rule": "custom",
-    "value": "custom"
-  },
-  {
     "outboundTag": "block",
     "desp": "内网IP屏蔽",
     "rule": "ip",
     "value": [
       "geoip:private"
     ]
+  },
+  {
+    "outboundTag": "custom",
+    "desp": "锚点: 上面的直连/代理/拦截列表将被加入在这里",
+    "rule": "custom",
+    "value": "custom"
   },
   {
     "outboundTag": "direct",
@@ -71,6 +71,14 @@
     "rule": "domain",
     "value": [
       "geosite:cn"
+    ]
+  },
+  {
+    "outboundTag": "【直连】TYO/东京 - 3",
+    "desp": "123",
+    "rule": "domain",
+    "value": [
+      "123"
     ]
   }
 ]
