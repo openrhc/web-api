@@ -1,21 +1,41 @@
 
-// 你的xray可执行文件路径
-export const XRAY_PATH = '/usr/local/bin/xray'
+/******************不建议修改的值********************/
+// 直连列表
+export const DIRECT_FILE = './src/plugins/xray/data/direct.list'
 
+// 代理列表
+export const PROXY_FILE = './src/plugins/xray/data/proxy.list'
+
+// 拦截列表
+export const BLOCK_FILE = './src/plugins/xray/data/block.list'
+
+// 分流文件
+export const ROUTES_FILE = './src/plugins/xray/data/routes.json'
+
+// 订阅列表
+export const SUBSCRIBES_FILE = './src/plugins/xray/data/subscribes.json'
+
+/*******************建议修改的值*********************/
 // 你的xray服务名称
 export const SERVICE_NAME = 'xray.service'
 
-// 你的xray配置文件存放路径
-export const XRAY_CONFIG_PATH = '/usr/local/etc/xray/config.json'
-
 // xray配置模板文件
-export const TEMPLATE_FILE = './src/plugins/xray/template.json'
+export const TEMPLATE_FILE = './src/plugins/xray/data/template.json'
 
-// 测速文件
-export const SPEEDTEST_FILE = 'http://http.speed.hinet.net/test_015m.zip'
+// 你的xray可执行文件
+export const XRAY_FILE = '/usr/local/bin/xray'
+
+// 你的xray配置文件
+export const XRAY_CONFIG_FILE = '/usr/local/etc/xray/config.json'
+
+// 测速文件链接(依据本地带宽修改)
+export const SPEEDTEST_URL = 'http://http.speed.hinet.net/test_015m.zip'
 
 // 测速文件大小
-export const SPEEDTEST_FILE_SIZE = 15000
+export const SPEEDTEST_URL_SIZE = 15000
+
+// 测延迟链接
+export const DELAYTEST_URL = 'http://www.gstatic.com/generate_204'
 
 // 替换节点中的关键词
 export const REPLACE_KEYWORDS = {
@@ -39,6 +59,3 @@ export const EXCLUDE_KEYWORDS = [
 
 // 不添加以下协议的节点，参考值：'Shadowsocks', 'Trojan', 'VMess',
 export const EXCLUDE_PROTOCOL = ['Shadowsocks', 'Trojan'];
-
-// 当节点不可用时，将以什么样的方式选择下一个节点，参考值：0 - 线性选择， 其他 - 随机选择
-export const SWITCH_PROXY_METHOD = 2;

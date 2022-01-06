@@ -1,16 +1,17 @@
-import { exec, readFile, writeFile, axiosGet } from '../../tools.js'
-
-import { SERVICE_NAME, TEMPLATE_FILE, XRAY_CONFIG_PATH, SPEEDTEST_FILE, SPEEDTEST_FILE_SIZE } from './config.js'
-
-import { parseNodes, getDelay, getSpeed, addOutbound, delOutbound } from './utils.js'
+import * as tools from '../../tools.js'
+import * as config from './config.js'
+import * as utils from './utils.js'
 
 // 订阅列表
 let subscribes = [
     {
         name: '本地订阅',
-        url: 'file:///root/web-api/jc.json'
+        url: 'file:///root/jc.json'
     }
 ]
+
+// 模板文件对象
+let tpl = {}
 
 // 节点列表
 let nodes = []
@@ -18,78 +19,70 @@ let nodes = []
 // 分流列表
 let routes = []
 
-// 直连列表
-let directList = []
-
-// 模板文件对象
-let config = {}
-
-// 代理列表
-let proxyList = []
+// 存放直连/代理/拦截列表
+const customList = [
+    [], // directList
+    [], // proxyList
+    [], // blockList
+]
 
 // 主节点
 let mainNode = {};
 
 // 读取模板文件: 解析分流规则、读取直连/代理列表
 ; (async function () {
-    // 解析分流规则
-    const [err, data] = await readFile(TEMPLATE_FILE)
+    // 读取模板文件
+    const [err, data] = await tools.readFile(config.TEMPLATE_FILE)
     if (err) {
-        console.log(err)
-        return
+        throw err
     }
-    const str = data.split('\n').filter(item => !item.trim().startsWith('//')).join('\n')
-    config = JSON.parse(str)
-    const type = ["domain", "ip", "protocol", "network", "port", "inboundTag"];
-    config.routing.rules.forEach(rule => {
-        let obj = {
-            outboundTag: rule.outboundTag,
-            desp: rule.desp,
-        }
-        for (let i = 0; i < type.length; i++) {
-            const t = type[i]
-            if (rule[t]) {
-                obj.rule = t
-                obj.value = rule[t]
-                break
-            }
-        }
-        routes.push(obj)
-    })
-    // 读取直连/代理列表
-    const [err1, data1] = await readFile('./src/plugins/xray/direct.list')
+    const str = data.split('\n')
+        .filter(v => !v.trim().startsWith('//'))
+        .join('\n')
+    tpl = JSON.parse(str)
+    // 读取自定义分流规则
+    const [err1, data2] = await tools.readFile(config.ROUTES_FILE)
     if (err1) {
         console.log(err1)
-        return
+    } else {
+        try {
+            routes.push(...JSON.parse(data2))
+        } catch (e) {
+            console.log(e)
+        }
     }
-    directList = data1.split('\n')
-    const [err2, data2] = await readFile('./src/plugins/xray/proxy.list')
-    if (err2) {
-        console.log(err2)
-        return
+    // 读取直连/代理/拦截列表
+    const list = ['direct.list', 'proxy.list', 'block.list']
+    for (let i = 0; i < list.length; i++) {
+        const [err, data] = await tools.readFile('./src/plugins/xray/data/' + list[i])
+        if (err) {
+            console.log(err)
+            continue
+        }
+        customList[i] = data.split('\n')
     }
-    proxyList = data2.split('\n')
+
 })()
 
 /**
  * 开启xray服务
  */
 export function startXray() {
-    return exec('systemctl', ['start', SERVICE_NAME])
+    return tools.exec('systemctl', ['start', config.SERVICE_NAME])
 }
 
 /*
  * 停止xray服务
  */
 export function stopXray() {
-    return exec('systemctl', ['stop', SERVICE_NAME])
+    return tools.exec('systemctl', ['stop', config.SERVICE_NAME])
 }
 
 /*
  * 重启xray服务
  */
 export function restartXray() {
-    return exec('systemctl', ['restart', SERVICE_NAME])
+    return tools.exec('systemctl', ['restart', config.SERVICE_NAME])
 }
 
 /**
@@ -98,6 +91,7 @@ export function restartXray() {
  * @returns 
  */
 export function updateSubscribe(i) {
+    console.log('触发函数: updateSubscribe')
     return new Promise(async (resolve) => {
         if (i < 0 || i >= subscribes.length) {
             return resolve([new Error('超出范围'), null])
@@ -105,21 +99,21 @@ export function updateSubscribe(i) {
         const subscribe = subscribes[i]
         // 1. 移除旧的节点
         nodes = nodes.filter(v => v.from !== subscribe.name)
+        // 2. 判断协议
         if (subscribe.url.startsWith('file://')) {
-            // 2. 添加新的节点
-            const [err, data] = await readFile(subscribe.url.substring(7))
+            const [err, data] = await tools.readFile(subscribe.url.substring(7))
             if (err) {
                 console.log(err)
                 return resolve([err, null])
             }
-            nodes.push(...parseNodes(data.toString(), subscribe.name))
+            nodes.push(...utils.parseNodes(data.toString(), subscribe.name))
         } else if (subscribe.url.match(/^https?:\/\//g)) {
-            const [err, data] = await axiosGet(subscribe.url)
+            const [err, data] = await tools.axiosGet(subscribe.url)
             if (err) {
                 console.log(err)
                 return resolve([err, null])
             }
-            nodes.push(...parseNodes(data), subscribe.name)
+            nodes.push(...utils.parseNodes(data), subscribe.name)
         } else {
             return resolve([new Error('不支持的协议', null)])
         }
@@ -131,26 +125,26 @@ export function updateSubscribe(i) {
  * 延迟检测
  */
 export function delayTest(index) {
-    console.log('触发函数：delayTest')
+    console.log('触发函数: delayTest')
     // 流量由xray-in:10810入口进入，由xray-out出口出去
     return new Promise(async (resolve, reject) => {
         if (index < 0 || index >= nodes.length) {
             return resolve([new Error('超出范围'), null])
         }
         // 删除一个outbound
-        const [err1, res1] = await delOutbound(nodes[index].outbound)
+        const [err1, res1] = await utils.delOutbound(nodes[index].outbound)
         if (err1) {
             console.log(err1)
             return resolve([err1, null])
         }
         // 新增一个outbound
-        const [err2, res2] = await addOutbound(nodes[index].outbound)
+        const [err2, res2] = await utils.addOutbound(nodes[index].outbound)
         if (err2) {
             console.log(err2)
             return resolve([err2, null])
         }
         // 调用axios发起一个请求测延迟
-        const [err3, res3] = await getDelay('http://www.gstatic.com/generate_204', 10000)
+        const [err3, res3] = await utils.getDelay(config.DELAYTEST_URL, 10000)
         if (err3) {
             return resolve([err3, null])
         }
@@ -170,17 +164,17 @@ export function speedTest(index) {
             return resolve([new Error('超出范围'), null])
         }
         // 删除一个outbound
-        const [err1, res1] = await delOutbound(nodes[index].outbound)
+        const [err1, res1] = await utils.delOutbound(nodes[index].outbound)
         if (err1) {
             return resolve([err1, null])
         }
         // 新增一个outbound
-        const [err2, res2] = await addOutbound(nodes[index].outbound)
+        const [err2, res2] = await utils.addOutbound(nodes[index].outbound)
         if (err2) {
             return resolve([err2, null])
         }
         // 调用axios测试速度
-        const [err3, res3] = await getSpeed(SPEEDTEST_FILE, SPEEDTEST_FILE_SIZE, 20000)
+        const [err3, res3] = await utils.getSpeed(config.SPEEDTEST_URL, config.SPEEDTEST_URL_SIZE, 20000)
         if (err3) {
             return resolve([err3, null])
         }
@@ -201,25 +195,27 @@ export function testNode(index) {
             return resolve([new Error('超出范围'), null])
         }
         // 删除一个outbound
-        const [err1, res1] = await delOutbound(nodes[index].outbound)
+        const [err1, res1] = await utils.delOutbound(nodes[index].outbound)
         if (err1) {
             console.log(err1)
             return resolve([err1, null])
         }
         // 新增一个outbound
-        const [err2, res2] = await addOutbound(nodes[index].outbound)
+        const [err2, res2] = await utils.addOutbound(nodes[index].outbound)
         if (err2) {
             console.log(err2)
             return resolve([err2, null])
         }
         // 调用axios测延迟
-        const [err3, res3] = await getDelay('http://www.gstatic.com/generate_204', 10000)
+        const [err3, res3] = await utils.getDelay(config.DELAYTEST_URL, 10000)
         if (err3) {
+            console.log(err3)
             return resolve([err3, null])
         }
         // 调用axios测速度
-        const [err4, res4] = await getSpeed(SPEEDTEST_FILE, SPEEDTEST_FILE_SIZE, 20000)
+        const [err4, res4] = await utils.getSpeed(config.SPEEDTEST_URL, config.SPEEDTEST_URL_SIZE, 20000)
         if (err4) {
+            console.log(err4)
             return resolve([err4, null])
         }
         nodes[index].delay = res3
@@ -232,151 +228,106 @@ export function testNode(index) {
  * 保存配置到config.json文件
  */
 export function saveConfig() {
+    console.log('触发函数：saveConfig')
     return new Promise(async resolve => {
         const rules = []
         const outbounds = []
-
         // 关于基于geosite和geoip的自定义直连、代理列表，需要进行再一次细分，以免直连中的geosite/geoip影响到代理中的域名，反之代理中的geosite/geoip也会影响到直连中的域名，关键在于顺序。
         // TODO：
 
-
-        // 解析内置规则
+        // 解析routes中的规则
         routes.forEach(v => {
-            // 生成客户端可用的rule配置项
+            // 将routes规则转为客户端可用规则
             const rule = {
                 type: 'field',
                 outboundTag: v.outboundTag,
                 [v.rule]: v.value
             }
-            // 查找当前rule配置项所用的节点
+            rules.push(rule)
+            // 查找当前规则所用的节点，添加到outbounds中
             const node = nodes.find(n => n.name === v.outboundTag)
-            // 找到说明使用了代理中的某个节点（将它添加到outbounds中）
-            // 并且判断outbounds中是否已经添加了
-            // 否则是使用了模板中自定义的出口或已经添加过，不需要处理
             if (node && !outbounds.find(o => o.tag === node.name)) {
-                // 将rule使用的节点添加到outbounds列表
                 outbounds.push({
                     ...node.outbound,
                     tag: node.name
                 })
             }
-            rules.push(rule)
         })
 
-        // 解析直连规则
-        const direct_domain = []
-        const direct_ip = []
-        const direct_protocol = []
-        const direct_port = []
-        for (let i = 0; i < directList.length; i++) {
-            let [proto, ...v] = directList[i].split(':')
-            if (!proto || !v) {
-                continue
+        // 解析直连、代理、拦截列表中的规则
+        const customs = []
+        const outboundTags = ['direct', 'proxy', 'block']
+        for (let i = 0; i < customList.length; i++) {
+            const DPBList = [
+                [], // 基于domain的规则
+                [], // 基于ip的规则
+                [], // 基于protocol的规则
+                [], // 基于port的规则
+            ]
+            for (let j = 0; j < customList[i].length; j++) {
+                let [proto, ...v] = customList[i][j].split(':')
+                if (!proto || !v) {
+                    continue
+                }
+                v = v.join(':')
+                if (proto === 'domain') {
+                    DPBList[0].push(v)
+                } else if (proto === 'ip') {
+                    DPBList[1].push(v)
+                } else if (proto === 'protocol') {
+                    DPBList[2].push(v)
+                } else if (proto === 'port') {
+                    DPBList[3].push(Number(v))
+                }
             }
-            v = v.join(':')
-            if (proto === 'domain') {
-                direct_domain.push(v)
-            } else if (proto === 'ip') {
-                direct_ip.push(v)
-            } else if (proto === 'protocol') {
-                direct_protocol.push(v)
-            } else if (proto === 'port') {
-                direct_port.push(Number(v))
+            if (DPBList[0].length) {
+                customs.push({
+                    type: 'field',
+                    outboundTag: outboundTags[i],
+                    domain: DPBList[0]
+                })
             }
-        }
-        if (direct_domain.length) {
-            rules.push({
-                type: 'field',
-                outboundTag: 'direct',
-                domain: direct_domain
-            })
-        }
-        if (direct_ip.length) {
-            rules.push({
-                type: 'field',
-                outboundTag: 'direct',
-                ip: direct_ip
-            })
-        }
-        direct_protocol.forEach(v => {
-            rules.push({
-                type: 'field',
-                outboundTag: 'direct',
-                protocol: v
-            })
-        })
-        direct_port.forEach(v => {
-            rules.push({
-                type: 'field',
-                outboundTag: 'direct',
-                port: v
-            })
-        })
-        // 解析代理规则
-        const proxy_domain = []
-        const proxy_ip = []
-        const proxy_protocol = []
-        const proxy_port = []
-        for (let i = 0; i < proxyList.length; i++) {
-            let [proto, ...v] = proxyList[i].split(':')
-            if (!proto || !v) {
-                continue
+            if (DPBList[1].length) {
+                customs.push({
+                    type: 'field',
+                    outboundTag: outboundTags[i],
+                    ip: DPBList[1]
+                })
             }
-            v = v.join(':')
-            if (proto === 'domain') {
-                proxy_domain.push(v)
-            } else if (proto === 'ip') {
-                proxy_ip.push(v)
-            } else if (proto === 'protocol') {
-                proxy_protocol.push(v)
-            } else if (proto === 'port') {
-                proxy_port.push(Number(v))
-            }
-        }
-        if (proxy_domain.length) {
-            rules.push({
-                type: 'field',
-                outboundTag: 'proxy',
-                domain: proxy_domain
+            DPBList[2].forEach(v => {
+                customs.push({
+                    type: 'field',
+                    outboundTag: outboundTags[i],
+                    protocol: v
+                })
+            })
+            DPBList[3].forEach(v => {
+                customs.push({
+                    type: 'field',
+                    outboundTag: outboundTags[i],
+                    port: v
+                })
             })
         }
-        if (proxy_ip.length) {
-            rules.push({
-                type: 'field',
-                outboundTag: 'proxy',
-                ip: proxy_ip
-            })
+
+        // 将customs插到锚点上
+        const customIdx = rules.findIndex(v => v.custom)
+        rules.splice(customIdx, 1, ...customs)
+
+        // 复制一份tpl对象
+        const tpl_copy = JSON.parse(JSON.stringify(tpl))
+
+        tpl_copy.routing.rules = rules
+        tpl_copy.outbounds.push(...outbounds)
+
+        // 如果没有设置主节点，则使用第一个节点作为主节点
+        if (!mainNode.name && nodes[0]) {
+            mainNode = nodes[0]
         }
-        proxy_protocol.forEach(v => {
-            rules.push({
-                type: 'field',
-                outboundTag: 'proxy',
-                protocol: v
-            })
-        })
-        proxy_port.forEach(v => {
-            rules.push({
-                type: 'field',
-                outboundTag: 'proxy',
-                port: v
-            })
-        })
-
-        // 复制一份config对象
-        const config_copy = JSON.parse(JSON.stringify(config))
-
-        config_copy.routing.rules = rules
-        config_copy.outbounds.push(...outbounds)
-
-        // 设置主节点
-        const idx = config_copy.outbounds.findIndex(v => v.tag === 'proxy')
-        if (idx !== -1) {
-            config_copy.outbounds[idx] = mainNode.outbound
-        } else {
-            config_copy.outbounds.unshift(mainNode.outbound)
-        }
-
-        const [err, res] = await writeFile(XRAY_CONFIG_PATH, config_copy)
+        const proxyIdx = tpl_copy.outbounds.findIndex(v => v.tag === 'proxy')
+        tpl_copy.outbounds[proxyIdx] = mainNode.outbound
+        // console.log(JSON.stringify(tpl_copy, null, 2))
+        const [err, res] = await tools.writeFile(config.XRAY_CONFIG_FILE, tpl_copy)
         if (err) {
             return resolve([err, null])
         }
@@ -398,7 +349,14 @@ export function getRoutes() {
  * @param {object}} newRoute 新的分流规则
  */
 export function setRoute(i, newRoute) {
-    routes[i] = newRoute
+    return new Promise(async resolve => {
+        routes[i] = newRoute
+        const [err, res] = await tools.writeFile(config.ROUTES_FILE, routes)
+        if (err) {
+            return resolve([err, '添加成功，写入失败'])
+        }
+        resolve([null, '添加成功，写入成功'])
+    })
 }
 
 /**
@@ -406,9 +364,38 @@ export function setRoute(i, newRoute) {
  * @param {number} i 索引
  */
 export function delRoute(i) {
-    if (i >= 0 && i < routes.length) {
+    return new Promise(async resolve => {
+        if (i < 0 || i >= routes.length) {
+            return resolve([new Error('超出范围'), null])
+        }
         routes.splice(i, 1)
-    }
+        const [err, res] = await tools.writeFile(config.ROUTES_FILE, routes)
+        if (err) {
+            return resolve([err, '删除成功，写入失败'])
+        }
+        resolve([null, '删除成功，写入成功'])
+    })
+}
+
+/**
+ * 分流规则排序
+ * @param {number} from 源索引
+ * @param {number} to 目标索引
+ * @returns 
+ */
+export function sortRoutes(from, to) {
+    return new Promise(async resolve => {
+        if (from < 0 || from >= routes.length || to < 0 || to >= routes.length) {
+            return resolve([new Error('超出范围'), null])
+        }
+        const tmp = routes.splice(from, 1);
+        routes.splice(to, 0, ...tmp);
+        const [err, res] = await tools.writeFile(config.ROUTES_FILE, routes)
+        if (err) {
+            return resolve([err, '排序成功，写入失败'])
+        }
+        resolve([null, '排序成功，写入成功'])
+    })
 }
 
 /**
@@ -487,7 +474,7 @@ export function delSubscribe(i) {
  * @returns 
  */
 export function getDirectList() {
-    return directList
+    return customList[0]
 }
 
 /**
@@ -496,8 +483,8 @@ export function getDirectList() {
  */
 export function setDirectList(newDirectList) {
     return new Promise(async resolve => {
-        directList = newDirectList
-        const [err, res] = await writeFile('./src/plugins/xray/direct.list', directList.join('\n'))
+        customList[0] = newDirectList
+        const [err, res] = await tools.writeFile(config.DIRECT_FILE, customList[0].join('\n'))
         if (err) {
             return resolve([err, null])
         }
@@ -510,7 +497,7 @@ export function setDirectList(newDirectList) {
  * @returns 
  */
 export function getProxyList() {
-    return proxyList
+    return customList[1]
 }
 
 /**
@@ -519,8 +506,31 @@ export function getProxyList() {
  */
 export function setProxyList(newProxyList) {
     return new Promise(async resolve => {
-        proxyList = newProxyList
-        const [err, res] = await writeFile('./src/plugins/xray/proxy.list', proxyList.join('\n'))
+        customList[1] = newProxyList
+        const [err, res] = await tools.writeFile(config.PROXY_FILE, customList[1].join('\n'))
+        if (err) {
+            return resolve([err, null])
+        }
+        resolve([null, 'OK'])
+    })
+}
+
+/**
+ * 获取拦截列表
+ * @returns 
+ */
+export function getBlockList() {
+    return customList[2]
+}
+
+/**
+ * 设置拦截列表
+ * @param {array} newBlockList 新的拦截列表
+ */
+export function setBlockList(newBlockList) {
+    return new Promise(async resolve => {
+        customList[2] = newBlockList
+        const [err, res] = await tools.writeFile(config.BLOCK_FILE, customList[2].join('\n'))
         if (err) {
             return resolve([err, null])
         }

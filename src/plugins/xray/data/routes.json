@@ -1,0 +1,76 @@
+[
+  {
+    "outboundTag": "api",
+    "desp": "api",
+    "rule": "inboundTag",
+    "value": [
+      "api"
+    ]
+  },
+  {
+    "outboundTag": "xray-out",
+    "desp": "测延迟、网速出口",
+    "rule": "inboundTag",
+    "value": [
+      "xray-in"
+    ]
+  },
+  {
+    "outboundTag": "dns-out",
+    "desp": "DNS",
+    "rule": "inboundTag",
+    "value": [
+      "dns-in"
+    ]
+  },
+  {
+    "outboundTag": "direct",
+    "desp": "NTP直连",
+    "rule": "port",
+    "value": 123
+  },
+  {
+    "outboundTag": "block",
+    "desp": "广告屏蔽",
+    "rule": "domain",
+    "value": [
+      "geosite:category-ads-all"
+    ]
+  },
+  {
+    "outboundTag": "direct",
+    "desp": "BT直连",
+    "rule": "protocol",
+    "value": "bittorrent"
+  },
+  {
+    "outboundTag": "custom",
+    "desp": "锚点: 上面的直连/代理/拦截列表将被加入在这里",
+    "rule": "custom",
+    "value": "custom"
+  },
+  {
+    "outboundTag": "block",
+    "desp": "内网IP屏蔽",
+    "rule": "ip",
+    "value": [
+      "geoip:private"
+    ]
+  },
+  {
+    "outboundTag": "direct",
+    "desp": "国内IP直连",
+    "rule": "ip",
+    "value": [
+      "geoip:cn"
+    ]
+  },
+  {
+    "outboundTag": "direct",
+    "desp": "国内域名直连",
+    "rule": "domain",
+    "value": [
+      "geosite:cn"
+    ]
+  }
+]

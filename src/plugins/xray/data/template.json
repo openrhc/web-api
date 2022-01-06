@@ -133,6 +133,9 @@
     ],
     "outbounds": [
         {
+            "tag": "proxy"
+        },
+        {
             "tag": "direct",
             "protocol": "freedom",
             "settings": {
@@ -164,51 +167,6 @@
     "routing": {
         "domainMatcher": "mph",
         "domainStrategy": "IPIfNonMatch",
-        "rules": [
-            {
-                "inboundTag": [
-                    "api"
-                ],
-                "outboundTag": "api",
-                "type": "field",
-                "desp": "内置api路由"
-            },
-            {
-                "inboundTag": [
-                    "xray-in"
-                ],
-                "outboundTag": "xray-out",
-                "type": "field",
-                "desp": "内置延迟、网速测试路由"
-            },
-            {
-                "inboundTag": [
-                    "dns-in"
-                ],
-                "outboundTag": "dns-out",
-                "type": "field",
-                "desp": "内置DNS服务器路由"
-            },
-            {
-                "type": "field",
-                "port": 123,
-                "outboundTag": "direct",
-                "desp": "内置NTP路由"
-            },
-            {
-                "type": "field",
-                "domain": [
-                    "geosite:category-ads-all"
-                ],
-                "outboundTag": "block",
-                "desp": "内置去广告路由"
-            },
-            {
-                "type": "field",
-                "protocol": "bittorrent",
-                "outboundTag": "direct",
-                "desp": "内置BT直连路由"
-            }
-        ]
+        "rules": []
     }
 }

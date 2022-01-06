@@ -7,8 +7,6 @@ import { sleep } from '../../tools.js'
 // 1.2 (可选) 导入自己的工具类
 import { Hello } from './utils.js'
 
-Hello()
-
 // 2. (*) 创建router
 const router = Router()
 
@@ -17,7 +15,7 @@ router.get('/', (req, res, next) => {
     // 4. 业务处理（同步）
     const result = {
         code: 0,
-        msg: 'sync api'
+        msg: Hello()
     }
     // 5. 返回结果
     res.json(result)

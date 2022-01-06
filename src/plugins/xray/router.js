@@ -1,5 +1,4 @@
 import { Router } from 'express'
-
 import * as xray from './index.js'
 
 const router = Router()
@@ -81,7 +80,7 @@ router.get('/subscribe/:id/del', (req, res) => {
 
 // 更新订阅
 router.get('/subscribe/:id/update', async (req, res) => {
-    const [err, msg] = await xray.updateSubscribe(Number(req.params))
+    const [err, msg] = await xray.updateSubscribe(Number(req.params.id))
     if (err) {
         return res.json({ code: -1, msg: err.message })
     }
@@ -93,6 +92,7 @@ router.get('/routes', async (req, res) => {
     const routes = xray.getRoutes()
     const directList = xray.getDirectList()
     const proxyList = xray.getProxyList()
+    const blockList = xray.getBlockList()
     const nodes = xray.getNodes().map(v => {
         return {
             name: v.name,
@@ -107,13 +107,14 @@ router.get('/routes', async (req, res) => {
             routes,
             directList,
             proxyList,
+            blockList,
             nodes
         }
     })
 })
 
 // 设置分流
-router.get('/route/:id/set', (req, res) => {
+router.get('/route/:id/set', async (req, res) => {
     let { outboundTag, desp, rule, value } = req.query
     if (!outboundTag || !desp || !rule || !value) {
         return res.json({ code: -1, msg: '缺少参数' })
@@ -125,20 +126,50 @@ router.get('/route/:id/set', (req, res) => {
         value = value.split(',')
     }
 
-    xray.setRoute(Number(id), {
+    const [err, msg] = await xray.setRoute(Number(id), {
         outboundTag,
         desp,
         rule,
         value
     })
-    res.json({ code: 0, msg: '添加成功' })
+    if (err) {
+        return res.json({ code: -1, msg: err.message })
+    }
+    res.json({ code: 0, msg })
 })
 
 // 删除分流
-router.get('/route/:id/del', (req, res) => {
+router.get('/route/:id/del', async (req, res) => {
     const { id } = req.params
-    xray.delRoute(Number(id))
-    res.json({ code: 0, msg: '删除成功' })
+    const [err, msg] = await xray.delRoute(Number(id))
+    if (err) {
+        return res.json({ code: -1, msg: err.message })
+    }
+    res.json({ code: 0, msg })
+})
+
+// 分流排序
+router.get('/routes/sort', async (req, res) => {
+    const { from, to } = req.query
+    if (!from || !to) {
+        return res.json({ code: -1, msg: '缺少参数' })
+    }
+    const [err, msg] = await xray.sortRoutes(Number(from), Number(to))
+    if (err) {
+        return res.json({ code: -1, msg: err.message })
+    }
+    res.json({ code: 0, msg })
+})
+
+
+// 设置直连列表
+router.get('/directlist/set', async (req, res) => {
+    const list = (req.query.list || '').split('\n').filter(v => v)
+    const [err] = await xray.setDirectList(list)
+    if (err) {
+        return res.json({ code: 0, msg: '更新成功，但是写入失败' })
+    }
+    res.json({ code: 0, msg: '更新成功，写入成功' })
 })
 
 // 设置代理列表
@@ -151,10 +182,10 @@ router.get('/proxylist/set', async (req, res) => {
     res.json({ code: 0, msg: '更新成功，写入成功' })
 })
 
-// 设置直连列表
-router.get('/directlist/set', async (req, res) => {
+// 设置拦截列表
+router.get('/blocklist/set', async (req, res) => {
     const list = (req.query.list || '').split('\n').filter(v => v)
-    const [err] = await xray.setDirectList(list)
+    const [err] = await xray.setBlockList(list)
     if (err) {
         return res.json({ code: 0, msg: '更新成功，但是写入失败' })
     }

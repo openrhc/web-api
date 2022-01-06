@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { createWriteStream } from 'fs'
-import { exec, base64Decode, writeFile } from '../../tools.js'
-import { XRAY_PATH, EXCLUDE_KEYWORDS, EXCLUDE_PROTOCOL, REPLACE_KEYWORDS } from './config.js'
+import * as tools from '../../tools.js'
+import * as config from './config.js'
 
 const CancelToken = axios.CancelToken
 
@@ -11,18 +11,17 @@ const CancelToken = axios.CancelToken
  * @param {string} timeout 超时时间
  */
 export function getDelay(url, timeout) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         const timeStart = Date.now()
         axios({
-            url: url,
-            method: 'GET',
-            timeout: timeout,
+            url,
+            timeout,
             proxy: {
                 host: '127.0.0.1',
                 port: 10810
             }
         })
-            .then(res => {
+            .then(() => {
                 const delay = Date.now() - timeStart
                 resolve([null, delay])
             })
@@ -45,10 +44,9 @@ export function getSpeed(url, filesize, timeout) {
         const writer = createWriteStream('/dev/null')
         const startTime = Date.now()
         const response = await axios({
-            url: url,
-            method: 'GET',
+            url,
+            timeout,
             responseType: 'stream',
-            timeout: 10000,
             proxy: {
                 host: '127.0.0.1',
                 port: 10810
@@ -91,7 +89,7 @@ export function parseNodes(string, from) {
         trojan: 'Trojan',
         vmess: 'VMess'
     }
-    const rawNodes = base64Decode(string).split('\n').filter(v => v)
+    const rawNodes = tools.base64Decode(string).split('\n').filter(v => v)
     for (const n of rawNodes) {
         const protocol = protocolMap[n.split('://')[0]]
         if (!protocol) {
@@ -107,12 +105,12 @@ export function parseNodes(string, from) {
             name = decodeURIComponent(n.substring(n.indexOf('#') + 1))
             outbound = generateOutbound('trojan', n.substring(9))
         } else if (protocol === 'VMess') {
-            const obj = base64Decode(n.substring(8))
+            const obj = tools.base64Decode(n.substring(8))
             name = JSON.parse(obj).ps
             outbound = generateOutbound('vmess', obj)
         }
-        const inExcludeKeywords = EXCLUDE_KEYWORDS.some(v => name.includes(v))
-        const inExclude_protocol = EXCLUDE_PROTOCOL.includes(protocol)
+        const inExcludeKeywords = config.EXCLUDE_KEYWORDS.some(v => name.includes(v))
+        const inExclude_protocol = config.EXCLUDE_PROTOCOL.includes(protocol)
         if (inExcludeKeywords || inExclude_protocol) {
             console.log('不添加', name, '因为', inExcludeKeywords ? '包含排除关键词' : '', inExclude_protocol ? '属于禁用协议' : '')
             continue
@@ -146,11 +144,11 @@ function doOutbound(action, outbound) {
                 }
             ]
         }
-        const [err1, res1] = await writeFile('/tmp/xraytempfile.json', c)
+        const [err1] = await tools.writeFile('/tmp/xraytempfile.json', c)
         if (err1) {
             return resolve([err1, null])
         }
-        const [err2, res2] = await exec(XRAY_PATH, ['api', action, '--server=127.0.0.1:10807', '/tmp/xraytempfile.json'])
+        const [err2] = await tools.exec(config.XRAY_FILE, ['api', action, '--server=127.0.0.1:10807', '/tmp/xraytempfile.json'])
         if (err2) {
             return resolve([err2, null])
         }
@@ -206,7 +204,7 @@ function generateOutbound(proto, sharelink) {
         }
     } else if (proto === 'ss') {
         if (sharelink.indexOf('@') !== -1 && sharelink.indexOf(':') !== -1) {
-            const arr = base64Decode(sharelink.substring(0, sharelink.indexOf('@'))).split(':')
+            const arr = tools.base64Decode(sharelink.substring(0, sharelink.indexOf('@'))).split(':')
             return {
                 "tag": "proxy",
                 "protocol": "shadowsocks",
@@ -227,7 +225,7 @@ function generateOutbound(proto, sharelink) {
                 }
             }
         } else {
-            const arr2 = base64Decode(sharelink.substring(0, sharelink.indexOf('#'))).split(':')
+            const arr2 = tools.base64Decode(sharelink.substring(0, sharelink.indexOf('#'))).split(':')
             return {
                 "tag": "proxy",
                 "protocol": "shadowsocks",
@@ -299,8 +297,8 @@ function generateOutbound(proto, sharelink) {
  * @returns 
  */
 function replaceName(name) {
-    for (let key in REPLACE_KEYWORDS) {
-        name = name.replace(key, REPLACE_KEYWORDS[key])
+    for (let key in config.REPLACE_KEYWORDS) {
+        name = name.replace(key, config.REPLACE_KEYWORDS[key])
     }
     return name
 }
