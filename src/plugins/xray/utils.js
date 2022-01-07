@@ -56,7 +56,7 @@ export function getSpeed(url, filesize, timeout) {
                 timer = setTimeout(() => {
                     c()
                     writer.close()
-                    resolve([new Error('太慢了', null)])
+                    resolve([new Error('速率过慢', null)])
                 }, timeout)
             })
         })
@@ -89,7 +89,18 @@ export function parseNodes(string, from) {
         trojan: 'Trojan',
         vmess: 'VMess'
     }
-    const rawNodes = tools.base64Decode(string).split('\n').filter(v => v)
+    // 是否需要base64解码
+    let flag_needBase64Decode = true
+    Object.keys(protocolMap).forEach(v => {
+        if (string.startsWith(v)) {
+            flag_needBase64Decode = false
+            return
+        }
+    })
+    if (flag_needBase64Decode) {
+        string = tools.base64Decode(string)
+    }
+    const rawNodes = string.split('\n').filter(v => v)
     for (const n of rawNodes) {
         const protocol = protocolMap[n.split('://')[0]]
         if (!protocol) {

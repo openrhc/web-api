@@ -68,7 +68,6 @@ export const REPLACE_KEYWORDS = {
 
 // 不添加包含以下关键词的节点
 export const EXCLUDE_KEYWORDS = [
-    '.com',
     '已禁',
     '严禁',
     '定期更新',
@@ -82,4 +81,4 @@ export const EXCLUDE_KEYWORDS = [
 ];
 
 // 不添加以下协议的节点，参考值：'Shadowsocks', 'Trojan', 'VMess',
-export const EXCLUDE_PROTOCOL = ['Shadowsocks', 'Trojan'];
+export const EXCLUDE_PROTOCOL = [];

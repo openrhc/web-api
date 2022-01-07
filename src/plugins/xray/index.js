@@ -19,10 +19,7 @@ const customList = [
     [], // directList
     [], // proxyList
     [], // blockList
-]
-
-// 主节点
-let mainNode = {};
+];
 
 /**
  * 初始化
@@ -104,7 +101,7 @@ export function stopXray() {
  * 重启xray服务
  */
 export function restartXray() {
-    console.log('触发函数: ')
+    console.log('触发函数: restartXray')
     return tools.exec('systemctl', ['restart', config.SERVICE_NAME])
 }
 
@@ -166,135 +163,131 @@ export function testNode(index) {
         }
         nodes[index].tips = 'Loading'
         // 调用axios测延迟
-        const [err3, res3] = await utils.getDelay(config.DELAYTEST_URL, 10000)
+        const [err3, delay] = await utils.getDelay(config.DELAYTEST_URL, 10000)
         if (err3) {
             console.log(err3)
             nodes[index].tips = err3.message
             return resolve([err3, null])
         }
         // 调用axios测速度
-        const [err4, res4] = await utils.getSpeed(config.SPEEDTEST_URL, config.SPEEDTEST_URL_SIZE, 20000)
+        const [err4, speed] = await utils.getSpeed(config.SPEEDTEST_URL, config.SPEEDTEST_URL_SIZE, 20000)
         if (err4) {
             console.log(err4)
+            err4.message = delay + ' ms ' + err4.message
             nodes[index].tips = err4.message
             return resolve([err4, null])
         }
-        nodes[index].delay = res3
-        nodes[index].speed = res4
+        nodes[index].delay = delay
+        nodes[index].speed = speed
         nodes[index].tips = ''
-        resolve([null, { delay: res3, speed: res4 }])
+        resolve([null, { delay: delay, speed: speed }])
     })
 }
 
-/*
- * 保存配置到config.json文件
+/**
+ * 按照配置模板生成包含outbounds和rules的config.json对象
+ * @returns 
  */
-export function saveConfig() {
-    console.log('触发函数: saveConfig')
-    return new Promise(async resolve => {
-        const rules = []
-        const outbounds = []
-        // 关于基于geosite和geoip的自定义直连、代理列表，需要进行再一次细分，以免直连中的geosite/geoip影响到代理中的域名，反之代理中的geosite/geoip也会影响到直连中的域名，关键在于顺序。
-        // TODO：
+export function generateConfig() {
+    console.log('触发函数: generateConfig')
+    const rules = []
+    const outbounds = []
+    // 关于基于geosite和geoip的自定义直连、代理列表，需要进行再一次细分，以免直连中的geosite/geoip影响到代理中的域名，反之代理中的geosite/geoip也会影响到直连中的域名，关键在于顺序。
+    // TODO：
 
-        // 解析routes中的规则
-        routes.forEach(v => {
-            // 将routes规则转为客户端可用规则
-            const rule = {
-                type: 'field',
-                outboundTag: v.outboundTag,
-                [v.rule]: v.value
-            }
-            rules.push(rule)
-            // 查找当前规则所用的节点，添加到outbounds中
-            const node = nodes.find(n => n.name === v.outboundTag)
-            if (node && !outbounds.find(o => o.tag === node.name)) {
-                outbounds.push({
-                    ...node.outbound,
-                    tag: node.name
-                })
-            }
-        })
-
-        // 解析直连、代理、拦截列表中的规则
-        const customs = []
-        const outboundTags = ['direct', 'proxy', 'block']
-        for (let i = 0; i < customList.length; i++) {
-            const DPBList = [
-                [], // 基于domain的规则
-                [], // 基于ip的规则
-                [], // 基于protocol的规则
-                [], // 基于port的规则
-            ]
-            for (let j = 0; j < customList[i].length; j++) {
-                let [proto, ...v] = customList[i][j].split(':')
-                if (!proto || !v) {
-                    continue
-                }
-                v = v.join(':')
-                if (proto === 'domain') {
-                    DPBList[0].push(v)
-                } else if (proto === 'ip') {
-                    DPBList[1].push(v)
-                } else if (proto === 'protocol') {
-                    DPBList[2].push(v)
-                } else if (proto === 'port') {
-                    DPBList[3].push(Number(v))
-                }
-            }
-            if (DPBList[0].length) {
-                customs.push({
-                    type: 'field',
-                    outboundTag: outboundTags[i],
-                    domain: DPBList[0]
-                })
-            }
-            if (DPBList[1].length) {
-                customs.push({
-                    type: 'field',
-                    outboundTag: outboundTags[i],
-                    ip: DPBList[1]
-                })
-            }
-            DPBList[2].forEach(v => {
-                customs.push({
-                    type: 'field',
-                    outboundTag: outboundTags[i],
-                    protocol: v
-                })
-            })
-            DPBList[3].forEach(v => {
-                customs.push({
-                    type: 'field',
-                    outboundTag: outboundTags[i],
-                    port: v
-                })
+    // 解析routes中的规则
+    routes.forEach(v => {
+        // 将routes规则转为客户端可用规则
+        const rule = {
+            type: 'field',
+            outboundTag: v.outboundTag,
+            [v.rule]: v.value
+        }
+        rules.push(rule)
+        // 查找当前规则所用的节点，添加到outbounds中
+        const node = nodes.find(n => n.name === v.outboundTag)
+        if (node && !outbounds.find(o => o.tag === node.name)) {
+            outbounds.push({
+                ...node.outbound,
+                tag: node.name
             })
         }
-
-        // 将customs插到锚点上
-        const customIdx = rules.findIndex(v => v.custom)
-        rules.splice(customIdx, 1, ...customs)
-
-        // 复制一份tpl对象
-        const tpl_copy = JSON.parse(JSON.stringify(tpl))
-
-        tpl_copy.routing.rules = rules
-        tpl_copy.outbounds.push(...outbounds)
-
-        // 如果没有设置主节点，则使用第一个节点作为主节点
-        if (!mainNode.name && nodes[0]) {
-            mainNode = nodes[0]
-        }
-        const proxyIdx = tpl_copy.outbounds.findIndex(v => v.tag === 'proxy')
-        tpl_copy.outbounds[proxyIdx] = mainNode.outbound
-        // console.log(JSON.stringify(tpl_copy, null, 2))
-        const [err, res] = await tools.writeFile(config.XRAY_CONFIG_FILE, tpl_copy)
-        if (err) {
-            return resolve([err, null])
-        }
-        resolve([null, '保存成功'])
     })
+
+    // 解析直连、代理、拦截列表中的规则
+    const customs = []
+    const outboundTags = ['direct', 'proxy', 'block']
+    for (let i = 0; i < customList.length; i++) {
+        const DPBList = [
+            [], // 基于domain的规则
+            [], // 基于ip的规则
+            [], // 基于protocol的规则
+            [], // 基于port的规则
+        ]
+        for (let j = 0; j < customList[i].length; j++) {
+            let [proto, ...v] = customList[i][j].split(':')
+            if (!proto || !v) {
+                continue
+            }
+            v = v.join(':')
+            if (proto === 'domain') {
+                DPBList[0].push(v)
+            } else if (proto === 'ip') {
+                DPBList[1].push(v)
+            } else if (proto === 'protocol') {
+                DPBList[2].push(v)
+            } else if (proto === 'port') {
+                DPBList[3].push(Number(v))
+            }
+        }
+        if (DPBList[0].length) {
+            customs.push({
+                type: 'field',
+                outboundTag: outboundTags[i],
+                domain: DPBList[0]
+            })
+        }
+        if (DPBList[1].length) {
+            customs.push({
+                type: 'field',
+                outboundTag: outboundTags[i],
+                ip: DPBList[1]
+            })
+        }
+        DPBList[2].forEach(v => {
+            customs.push({
+                type: 'field',
+                outboundTag: outboundTags[i],
+                protocol: v
+            })
+        })
+        DPBList[3].forEach(v => {
+            customs.push({
+                type: 'field',
+                outboundTag: outboundTags[i],
+                port: v
+            })
+        })
+    }
+
+    // 将customs插到锚点上
+    const customIdx = rules.findIndex(v => v.custom)
+    rules.splice(customIdx, 1, ...customs)
+
+    // 复制一份tpl对象
+    const tpl_copy = JSON.parse(JSON.stringify(tpl))
+
+    // 添加主节点
+    const activeNode = nodes.find(v => v.active)
+    const proxyIndex = tpl_copy.outbounds.findIndex(v => v.tag === 'proxy')
+    if (activeNode && proxyIndex !== -1) {
+        tpl_copy.outbounds[proxyIndex] = activeNode.outbound
+    }
+
+    tpl_copy.routing.rules = rules
+    tpl_copy.outbounds.push(...outbounds)
+    // console.log(JSON.stringify(tpl_copy, null, 2))
+    return tpl_copy
 }
 
 /**
@@ -317,6 +310,8 @@ export function setRoute(i, newRoute) {
     }
     routes[i] = newRoute
     tools.writeFileDebounce(config.ROUTES_FILE, routes)
+    // 写入主配置
+    tools.writeFileDebounce(config.XRAY_CONFIG_FILE, generateConfig())
     return [null, '设置成功']
 }
 
@@ -331,6 +326,8 @@ export function delRoute(i) {
     }
     routes.splice(i, 1)
     tools.writeFileDebounce(config.ROUTES_FILE, routes)
+    // 写入主配置
+    tools.writeFileDebounce(config.XRAY_CONFIG_FILE, generateConfig())
     return [null, '删除成功，写入成功']
 }
 
@@ -348,6 +345,8 @@ export function sortRoutes(from, to) {
     const tmp = routes.splice(from, 1);
     routes.splice(to, 0, ...tmp);
     tools.writeFileDebounce(config.ROUTES_FILE, routes)
+    // 写入主配置
+    tools.writeFileDebounce(config.XRAY_CONFIG_FILE, generateConfig())
     return [null, '排序成功']
 }
 
@@ -360,18 +359,19 @@ export function getNodes() {
 }
 
 /**
- * 设置节点
+ * 添加节点
  * @param {number} i 索引
- * @param {object} newNode 新的节点
+ * @param {object} sharelink 新的节点
  */
-export function setNode(i, newNode) {
-    console.log('触发函数: setNode')
-    if (i < 0 || i > nodes.length) {
-        return [new Error('超出范围'), null]
+export function addNode(sharelink) {
+    console.log('触发函数: addNode')
+    const newNodes = utils.parseNodes(sharelink, '手动添加')
+    if (newNodes.length) {
+        nodes.push(...newNodes)
+        tools.writeFileDebounce(config.NODES_FILE, nodes)
+        return [null, newNodes]
     }
-    nodes[i] = newNode
-    tools.writeFileDebounce(config.NODES_FILE, nodes)
-    return [null, '更新成功']
+    return [new Error('添加失败'), null]
 }
 
 /**
@@ -502,6 +502,7 @@ export function setDirectList(newDirectList) {
     console.log('触发函数: setDirectList')
     customList[0] = newDirectList
     tools.writeFileDebounce(config.DIRECT_FILE, customList[0].join('\n'))
+    // tools.writeFileDebounce(config.XRAY_CONFIG_FILE, generateConfig())
     return [null, 'OK']
 }
 
@@ -521,6 +522,7 @@ export function setProxyList(newProxyList) {
     console.log('触发函数: setProxyList')
     customList[1] = newProxyList
     tools.writeFileDebounce(config.PROXY_FILE, customList[1].join('\n'))
+    tools.writeFileDebounce(config.XRAY_CONFIG_FILE, generateConfig())
     return [null, 'OK']
 }
 
@@ -540,15 +542,8 @@ export function setBlockList(newBlockList) {
     console.log('触发函数: setBlockList')
     customList[2] = newBlockList
     tools.writeFileDebounce(config.BLOCK_FILE, customList[2].join('\n'))
+    tools.writeFileDebounce(config.XRAY_CONFIG_FILE, generateConfig())
     return [null, 'OK']
-}
-
-/**
- * 获取主节点
- * @returns 
- */
-export function getMainNode() {
-    return mainNode
 }
 
 /**
@@ -561,24 +556,27 @@ export function setMainNode(index) {
         if (index < 0 || index >= nodes.length) {
             return resolve([new Error('超出范围'), null])
         }
-        // 去除旧的mainNode上的active属性
-        delete mainNode.active
-        mainNode = nodes[index]
-        // 为新的mainNode增加active属性
-        mainNode.active = true
+        const oldActiveNode = nodes.find(v => v.active) || nodes[0]
+        const newActiveNode = nodes[index]
+        delete oldActiveNode.active
+        newActiveNode.active = true
+
         // 删除原有proxy节点
-        const [err1, res1] = await utils.delOutbound(mainNode.outbound, 'proxy')
+        const [err1, res1] = await utils.delOutbound(oldActiveNode.outbound, 'proxy')
         if (err1) {
             console.log(err1)
             return resolve([err1, null])
         }
         // 新增proxy节点
-        const [err2, res2] = await utils.addOutbound(mainNode.outbound, 'proxy')
+        const [err2, res2] = await utils.addOutbound(newActiveNode.outbound, 'proxy')
         if (err2) {
             console.log(err2)
             return resolve([err2, null])
         }
+        // 写入节点
         tools.writeFileDebounce(config.NODES_FILE, nodes)
+        // 写入主配置
+        tools.writeFileDebounce(config.XRAY_CONFIG_FILE, generateConfig())
         resolve([null, '设置成功'])
     })
 }

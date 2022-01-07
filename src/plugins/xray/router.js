@@ -15,7 +15,7 @@ router.get('/nodes', (req, res) => {
             speed: v.speed,
             tips: v.tips,
             active: v.active === true,
-            original: v.original,
+            // original: v.original,
         }
     })
     res.json({ code: 0, data: nodes })
@@ -37,6 +37,19 @@ router.get('/node/:id/delay', async (req, res) => {
         return res.json({ code: -1, msg: err.message })
     }
     res.json({ code: 0, delay })
+})
+
+// 添加节点
+router.post('/nodes/add', (req, res) => {
+    const { sharelink } = req.body
+    if (!sharelink) {
+        return res.json({ code: -1, msg: '缺少参数' })
+    }
+    const [err, data] = xray.addNode(sharelink)
+    if (err) {
+        return res.json({ code: -1, msg: err.message })
+    }
+    res.json({ code: 0, data })
 })
 
 // 节点测速
@@ -211,15 +224,6 @@ router.get('/mainnode/set', async (req, res) => {
         return res.json({ code: 0, msg: err.message })
     }
     res.json({ code: 0, msg })
-})
-
-// 保存配置文件
-router.get('/config/save', async (req, res) => {
-    const [err] = await xray.saveConfig()
-    if (err) {
-        return res.json({ code: 0, msg: err.message })
-    }
-    res.json({ code: 0, msg: '保存成功' })
 })
 
 // 开启服务

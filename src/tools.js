@@ -9,7 +9,7 @@ import axios from 'axios'
  * @returns 
  */
 export function exec(command = '', args = []) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         const result = spawn(command, args)
         let errStr = ''
         let outStr = ''
@@ -70,7 +70,7 @@ export function base64Decode(str = '') {
  * @param {String} file 文件路径
  */
 export function readFile(file = '') {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         read(file, 'utf8', (err, data) => {
             if (err) {
                 return resolve([err, null])
@@ -91,10 +91,10 @@ export function writeFile(file = '', data) {
     if (typeof data !== 'string') {
         data = JSON.stringify(data, null, 2)
     }
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         write(file, data, 'utf8', err => {
             if (err) {
-                return reject([err, null])
+                return resolve([err, null])
             }
             resolve([null, null])
         })
@@ -115,6 +115,7 @@ export function writeFileDebounce(file = '', data, delay = 60000) {
         const [err] = await writeFile(file, data)
         if (err) {
             console.log(err)
+            console.log('警告: 您的数据目前无法同步至硬盘，请手动创建所需目录。')
         }
         delete timers[file]
     }, delay)
