@@ -3,12 +3,7 @@ import * as config from './config.js'
 import * as utils from './utils.js'
 
 // 订阅列表
-let subscribes = [
-    {
-        name: '本地订阅',
-        url: 'file:///root/jc.json'
-    }
-]
+let subscribes = []
 
 // 模板文件对象
 let tpl = {}
@@ -29,11 +24,14 @@ const customList = [
 // 主节点
 let mainNode = {};
 
-// 读取模板文件: 解析分流规则、读取直连/代理列表
+/**
+ * 初始化
+ */
 ; (async function () {
     // 读取模板文件
     const [err, data] = await tools.readFile(config.TEMPLATE_FILE)
     if (err) {
+        console.log('模板文件丢失，无法正确运行程序')
         throw err
     }
     const str = data.split('\n')
@@ -41,20 +39,42 @@ let mainNode = {};
         .join('\n')
     tpl = JSON.parse(str)
     // 读取自定义分流规则
-    const [err1, data2] = await tools.readFile(config.ROUTES_FILE)
+    const [err1, data1] = await tools.readFile(config.ROUTES_FILE)
     if (err1) {
         console.log(err1)
     } else {
         try {
-            routes.push(...JSON.parse(data2))
+            routes.push(...JSON.parse(data1))
+        } catch (e) {
+            console.log(e)
+        }
+    }
+    // 读取订阅列表
+    const [err2, data2] = await tools.readFile(config.SUBSCRIBES_FILE)
+    if (err2) {
+        console.log(err2)
+    } else {
+        try {
+            subscribes.push(...JSON.parse(data2))
+        } catch (e) {
+            console.log(e)
+        }
+    }
+    // 读取节点列表
+    const [err3, data3] = await tools.readFile(config.NODES_FILE)
+    if (err3) {
+        console.log(err3)
+    } else {
+        try {
+            nodes.push(...JSON.parse(data3))
         } catch (e) {
             console.log(e)
         }
     }
     // 读取直连/代理/拦截列表
-    const list = ['direct.list', 'proxy.list', 'block.list']
+    const list = [config.DIRECT_FILE, config.PROXY_FILE, config.BLOCK_FILE]
     for (let i = 0; i < list.length; i++) {
-        const [err, data] = await tools.readFile('./src/plugins/xray/data/' + list[i])
+        const [err, data] = await tools.readFile(list[i])
         if (err) {
             console.log(err)
             continue
@@ -68,6 +88,7 @@ let mainNode = {};
  * 开启xray服务
  */
 export function startXray() {
+    console.log('触发函数: startXray')
     return tools.exec('systemctl', ['start', config.SERVICE_NAME])
 }
 
@@ -75,6 +96,7 @@ export function startXray() {
  * 停止xray服务
  */
 export function stopXray() {
+    console.log('触发函数: stopXray')
     return tools.exec('systemctl', ['stop', config.SERVICE_NAME])
 }
 
@@ -82,6 +104,7 @@ export function stopXray() {
  * 重启xray服务
  */
 export function restartXray() {
+    console.log('触发函数: ')
     return tools.exec('systemctl', ['restart', config.SERVICE_NAME])
 }
 
@@ -89,120 +112,32 @@ export function restartXray() {
  * 获取服务状态
  */
 export function statusXray() {
+    console.log('触发函数: statusXray')
     return new Promise(async resolve => {
         // 是否在运行
         const [err, isActive] = await tools.exec('systemctl', ['is-active', config.SERVICE_NAME])
         if (err) {
+            console.log(err)
             return resolve([err, null])
         }
         // 是否自启动
         const [err1, isEnabled] = await tools.exec('systemctl', ['is-enabled', config.SERVICE_NAME])
         if (err1) {
-            return resolve([err1, null])
-        }
-        const status = {
-            active: isActive.trim() === 'active',
-            enabled: isEnabled.trim() === 'enabled'
-        }
-        resolve([null, status])
-    })
-}
-
-/**
- * 更新订阅
- * @param {*} i 索引
- * @returns 
- */
-export function updateSubscribe(i) {
-    console.log('触发函数: updateSubscribe')
-    return new Promise(async (resolve) => {
-        if (i < 0 || i >= subscribes.length) {
-            return resolve([new Error('超出范围'), null])
-        }
-        const subscribe = subscribes[i]
-        // 1. 移除旧的节点
-        nodes = nodes.filter(v => v.from !== subscribe.name)
-        // 2. 判断协议
-        if (subscribe.url.startsWith('file://')) {
-            const [err, data] = await tools.readFile(subscribe.url.substring(7))
-            if (err) {
-                console.log(err)
-                return resolve([err, null])
-            }
-            nodes.push(...utils.parseNodes(data.toString(), subscribe.name))
-        } else if (subscribe.url.match(/^https?:\/\//g)) {
-            const [err, data] = await tools.axiosGet(subscribe.url)
-            if (err) {
-                console.log(err)
-                return resolve([err, null])
-            }
-            nodes.push(...utils.parseNodes(data), subscribe.name)
-        } else {
-            return resolve([new Error('不支持的协议', null)])
-        }
-        resolve([null, '更新成功'])
-    })
-}
-
-/*
- * 延迟检测
- */
-export function delayTest(index) {
-    console.log('触发函数: delayTest')
-    // 流量由xray-in:10810入口进入，由xray-out出口出去
-    return new Promise(async (resolve, reject) => {
-        if (index < 0 || index >= nodes.length) {
-            return resolve([new Error('超出范围'), null])
-        }
-        // 删除一个outbound
-        const [err1, res1] = await utils.delOutbound(nodes[index].outbound, 'xray-out')
-        if (err1) {
             console.log(err1)
             return resolve([err1, null])
         }
-        // 新增一个outbound
-        const [err2, res2] = await utils.addOutbound(nodes[index].outbound, 'xray-out')
+        // 当前版本
+        const [err2, version] = await tools.exec(config.XRAY_FILE, ['version'])
         if (err2) {
             console.log(err2)
             return resolve([err2, null])
         }
-        // 调用axios发起一个请求测延迟
-        const [err3, res3] = await utils.getDelay(config.DELAYTEST_URL, 10000)
-        if (err3) {
-            return resolve([err3, null])
+        const status = {
+            active: isActive.trim() === 'active',
+            enabled: isEnabled.trim() === 'enabled',
+            version: version.trim().split(' ')[1]
         }
-        nodes[index].delay = res3
-        resolve([null, res3])
-    })
-}
-
-/*
- * 节点测速
- */
-export function speedTest(index) {
-    console.log('触发函数：speedTest')
-    // 流量由xray-in:10810入口进入，由xray-out出口出去
-    return new Promise(async (resolve, reject) => {
-        if (index < 0 || index >= nodes.length) {
-            return resolve([new Error('超出范围'), null])
-        }
-        // 删除一个outbound
-        const [err1, res1] = await utils.delOutbound(nodes[index].outbound, 'xray-out')
-        if (err1) {
-            return resolve([err1, null])
-        }
-        // 新增一个outbound
-        const [err2, res2] = await utils.addOutbound(nodes[index].outbound, 'xray-out')
-        if (err2) {
-            return resolve([err2, null])
-        }
-        // 调用axios测试速度
-        const [err3, res3] = await utils.getSpeed(config.SPEEDTEST_URL, config.SPEEDTEST_URL_SIZE, 20000)
-        if (err3) {
-            return resolve([err3, null])
-        }
-        nodes[index].speed = res3
-        resolve([null, res3])
+        resolve([null, status])
     })
 }
 
@@ -212,7 +147,7 @@ export function speedTest(index) {
  * @returns 
  */
 export function testNode(index) {
-    console.log('触发函数：testNode')
+    console.log('触发函数: testNode')
     return new Promise(async (resolve) => {
         if (index < 0 || index >= nodes.length) {
             return resolve([new Error('超出范围'), null])
@@ -255,7 +190,7 @@ export function testNode(index) {
  * 保存配置到config.json文件
  */
 export function saveConfig() {
-    console.log('触发函数：saveConfig')
+    console.log('触发函数: saveConfig')
     return new Promise(async resolve => {
         const rules = []
         const outbounds = []
@@ -376,14 +311,13 @@ export function getRoutes() {
  * @param {object}} newRoute 新的分流规则
  */
 export function setRoute(i, newRoute) {
-    return new Promise(async resolve => {
-        routes[i] = newRoute
-        const [err, res] = await tools.writeFile(config.ROUTES_FILE, routes)
-        if (err) {
-            return resolve([err, '添加成功，写入失败'])
-        }
-        resolve([null, '添加成功，写入成功'])
-    })
+    console.log('触发函数: setRoute')
+    if (i < 0 || i > routes.length) {
+        return [new Error('超出范围'), null]
+    }
+    routes[i] = newRoute
+    tools.writeFileDebounce(config.ROUTES_FILE, routes)
+    return [null, '设置成功']
 }
 
 /**
@@ -391,17 +325,13 @@ export function setRoute(i, newRoute) {
  * @param {number} i 索引
  */
 export function delRoute(i) {
-    return new Promise(async resolve => {
-        if (i < 0 || i >= routes.length) {
-            return resolve([new Error('超出范围'), null])
-        }
-        routes.splice(i, 1)
-        const [err, res] = await tools.writeFile(config.ROUTES_FILE, routes)
-        if (err) {
-            return resolve([err, '删除成功，写入失败'])
-        }
-        resolve([null, '删除成功，写入成功'])
-    })
+    console.log('触发函数: delRoute')
+    if (i < 0 || i >= routes.length) {
+        return [new Error('超出范围'), null]
+    }
+    routes.splice(i, 1)
+    tools.writeFileDebounce(config.ROUTES_FILE, routes)
+    return [null, '删除成功，写入成功']
 }
 
 /**
@@ -411,18 +341,14 @@ export function delRoute(i) {
  * @returns 
  */
 export function sortRoutes(from, to) {
-    return new Promise(async resolve => {
-        if (from < 0 || from >= routes.length || to < 0 || to >= routes.length) {
-            return resolve([new Error('超出范围'), null])
-        }
-        const tmp = routes.splice(from, 1);
-        routes.splice(to, 0, ...tmp);
-        const [err, res] = await tools.writeFile(config.ROUTES_FILE, routes)
-        if (err) {
-            return resolve([err, '排序成功，写入失败'])
-        }
-        resolve([null, '排序成功，写入成功'])
-    })
+    console.log('触发函数: sortRoutes')
+    if (from < 0 || from >= routes.length || to < 0 || to >= routes.length) {
+        return [new Error('超出范围'), null]
+    }
+    const tmp = routes.splice(from, 1);
+    routes.splice(to, 0, ...tmp);
+    tools.writeFileDebounce(config.ROUTES_FILE, routes)
+    return [null, '排序成功']
 }
 
 /**
@@ -439,7 +365,13 @@ export function getNodes() {
  * @param {object} newNode 新的节点
  */
 export function setNode(i, newNode) {
+    console.log('触发函数: setNode')
+    if (i < 0 || i > nodes.length) {
+        return [new Error('超出范围'), null]
+    }
     nodes[i] = newNode
+    tools.writeFileDebounce(config.NODES_FILE, nodes)
+    return [null, '更新成功']
 }
 
 /**
@@ -447,9 +379,13 @@ export function setNode(i, newNode) {
  * @param {number} i 索引
  */
 export function delNode(i) {
-    if (i >= 0 && i < nodes.length) {
-        nodes.splice(i, 1)
+    console.log('触发函数: delNode')
+    if (i < 0 || i >= nodes.length) {
+        return ['超出范围', null]
     }
+    nodes.splice(i, 1)
+    tools.writeFileDebounce(config.NODES_FILE, nodes)
+    return [null, '删除成功']
 }
 
 /**
@@ -461,29 +397,65 @@ export function getSubscribes() {
 }
 
 /**
+ * 更新订阅
+ * @param {*} i 索引
+ * @returns 
+ */
+export function updateSubscribe(i) {
+    console.log('触发函数: updateSubscribe')
+    return new Promise(async (resolve) => {
+        if (i < 0 || i >= subscribes.length) {
+            return resolve([new Error('超出范围'), null])
+        }
+        const subscribe = subscribes[i]
+        // 1. 移除旧的节点
+        nodes = nodes.filter(v => v.from !== subscribe.name)
+        // 2. 判断协议
+        if (subscribe.url.startsWith('file://')) {
+            const [err, data] = await tools.readFile(subscribe.url.substring(7))
+            if (err) {
+                console.log(err)
+                return resolve([err, null])
+            }
+            nodes.push(...utils.parseNodes(data.toString(), subscribe.name))
+        } else if (subscribe.url.match(/^https?:\/\//g)) {
+            const [err, data] = await tools.axiosGet(subscribe.url)
+            if (err) {
+                console.log(err)
+                return resolve([err, null])
+            }
+            nodes.push(...utils.parseNodes(data), subscribe.name)
+        } else {
+            return resolve([new Error('不支持的协议', null)])
+        }
+        tools.writeFileDebounce(config.NODES_FILE, nodes)
+        resolve([null, '更新成功'])
+    })
+}
+
+/**
  * 设置订阅
  * @param {number} id 索引
  * @param {object} newSubscribe 新的订阅
  * @returns 
  */
 export function setSubscribe(id, newSubscribe) {
+    console.log('触发函数: setSubscribe')
     if (id < 0 || id > subscribes.length) {
-        return
-    }
-    // 添加
-    if (id === subscribes.length) {
-        subscribes[id] = newSubscribe
-        return
+        return [new Error('超出范围'), null]
     }
     // 更新节点中的from
-    const oldname = subscribes[id].name
-    for (let i = 0; i < nodes.length; i++) {
-        if (nodes[i].from === oldname) {
-            nodes[i].from = newSubscribe.name
+    if (id !== subscribes.length) {
+        const oldname = subscribes[id].name
+        for (let i = 0; i < nodes.length; i++) {
+            if (nodes[i].from === oldname) {
+                nodes[i].from = newSubscribe.name
+            }
         }
     }
-    // 更新订阅中的name
     subscribes[id] = newSubscribe
+    tools.writeFileDebounce(config.SUBSCRIBES_FILE, subscribes)
+    return [null, '设置成功']
 }
 
 /**
@@ -491,9 +463,27 @@ export function setSubscribe(id, newSubscribe) {
  * @param {number} i 索引
  */
 export function delSubscribe(i) {
-    if (i >= 0 && i < subscribes.length) {
-        subscribes.splice(i, 1)
+    console.log('触发函数: delSubscribe')
+    if (i < 0 || i >= subscribes.length) {
+        return [new Error('超出范围'), null]
     }
+    subscribes.splice(i, 1)
+    tools.writeFileDebounce(config.SUBSCRIBES_FILE, subscribes)
+    return [null, '删除成功']
+}
+
+/**
+ * 清空订阅
+ * @param {number} i 索引
+ */
+export function emptySubscribe(i) {
+    console.log('触发函数: emptySubscribe')
+    if (i < 0 || i >= subscribes.length) {
+        return [new Error('超出范围'), null]
+    }
+    nodes = nodes.filter(v => v.from !== subscribes[i].name)
+    tools.writeFileDebounce(config.NODES_FILE, nodes)
+    return [null, '清空成功，写入成功']
 }
 
 /**
@@ -509,14 +499,10 @@ export function getDirectList() {
  * @param {array} newDirectList 新的直连列表
  */
 export function setDirectList(newDirectList) {
-    return new Promise(async resolve => {
-        customList[0] = newDirectList
-        const [err, res] = await tools.writeFile(config.DIRECT_FILE, customList[0].join('\n'))
-        if (err) {
-            return resolve([err, null])
-        }
-        resolve([null, 'OK'])
-    })
+    console.log('触发函数: setDirectList')
+    customList[0] = newDirectList
+    tools.writeFileDebounce(config.DIRECT_FILE, customList[0].join('\n'))
+    return [null, 'OK']
 }
 
 /**
@@ -532,14 +518,10 @@ export function getProxyList() {
  * @param {array} newProxyList 新的代理列表
  */
 export function setProxyList(newProxyList) {
-    return new Promise(async resolve => {
-        customList[1] = newProxyList
-        const [err, res] = await tools.writeFile(config.PROXY_FILE, customList[1].join('\n'))
-        if (err) {
-            return resolve([err, null])
-        }
-        resolve([null, 'OK'])
-    })
+    console.log('触发函数: setProxyList')
+    customList[1] = newProxyList
+    tools.writeFileDebounce(config.PROXY_FILE, customList[1].join('\n'))
+    return [null, 'OK']
 }
 
 /**
@@ -555,14 +537,10 @@ export function getBlockList() {
  * @param {array} newBlockList 新的拦截列表
  */
 export function setBlockList(newBlockList) {
-    return new Promise(async resolve => {
-        customList[2] = newBlockList
-        const [err, res] = await tools.writeFile(config.BLOCK_FILE, customList[2].join('\n'))
-        if (err) {
-            return resolve([err, null])
-        }
-        resolve([null, 'OK'])
-    })
+    console.log('触发函数: setBlockList')
+    customList[2] = newBlockList
+    tools.writeFileDebounce(config.BLOCK_FILE, customList[2].join('\n'))
+    return [null, 'OK']
 }
 
 /**
@@ -578,11 +556,16 @@ export function getMainNode() {
  * @param {*} index 索引
  */
 export function setMainNode(index) {
+    console.log('触发函数: setMainNode')
     return new Promise(async (resolve) => {
         if (index < 0 || index >= nodes.length) {
             return resolve([new Error('超出范围'), null])
         }
+        // 去除旧的mainNode上的active属性
+        delete mainNode.active
         mainNode = nodes[index]
+        // 为新的mainNode增加active属性
+        mainNode.active = true
         // 删除原有proxy节点
         const [err1, res1] = await utils.delOutbound(mainNode.outbound, 'proxy')
         if (err1) {
@@ -595,6 +578,7 @@ export function setMainNode(index) {
             console.log(err2)
             return resolve([err2, null])
         }
+        tools.writeFileDebounce(config.NODES_FILE, nodes)
         resolve([null, '设置成功'])
     })
 }

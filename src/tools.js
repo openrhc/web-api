@@ -23,9 +23,9 @@ export function exec(command = '', args = []) {
             resolve([err, null])
         })
         result.on('close', (code) => {
-            if (code !== 0) {
-                return resolve([new Error(errStr), null])
-            }
+            // if (code !== 0) {
+            //     return resolve([new Error(errStr), null])
+            // }
             resolve([null, outStr])
         })
     })
@@ -87,6 +87,7 @@ export function readFile(file = '') {
  * @param {String} data 文件内容
  */
 export function writeFile(file = '', data) {
+    console.log('触发函数: writeFile', file)
     if (typeof data !== 'string') {
         data = JSON.stringify(data, null, 2)
     }
@@ -98,4 +99,23 @@ export function writeFile(file = '', data) {
             resolve([null, null])
         })
     })
+}
+
+/**
+ * Promise封装的写入文件操作（防抖）
+ * @param {String} file 文件路径
+ * @param {String} data 文件内容
+ * @param {number} delay 延迟写入时间
+ */
+const timers = {}
+export function writeFileDebounce(file = '', data, delay = 60000) {
+    console.log('触发函数: writeFileDebounce', file)
+    clearTimeout(timers[file])
+    timers[file] = setTimeout(async () => {
+        const [err] = await writeFile(file, data)
+        if (err) {
+            console.log(err)
+        }
+        delete timers[file]
+    }, delay)
 }
