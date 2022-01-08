@@ -87,7 +87,7 @@
                 ]
             },
             "settings": {
-                "allowTransparent": true
+                "allowTransparent": false
             }
         },
         {
@@ -117,7 +117,7 @@
                 ]
             },
             "settings": {
-                "allowTransparent": true
+                "allowTransparent": false
             }
         },
         {

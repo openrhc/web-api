@@ -82,34 +82,34 @@ const customList = [
 })()
 
 /**
- * 开启xray服务
+ * 开启代理服务
  */
-export function startXray() {
-    console.log('触发函数: startXray')
+export function startProxy() {
+    console.log('触发函数: startProxy')
     return tools.exec('systemctl', ['start', config.SERVICE_NAME])
 }
 
 /*
- * 停止xray服务
+ * 停止代理服务
  */
-export function stopXray() {
-    console.log('触发函数: stopXray')
+export function stopProxy() {
+    console.log('触发函数: stopProxy')
     return tools.exec('systemctl', ['stop', config.SERVICE_NAME])
 }
 
 /*
- * 重启xray服务
+ * 重启代理服务
  */
-export function restartXray() {
-    console.log('触发函数: restartXray')
+export function restartProxy() {
+    console.log('触发函数: restartProxy')
     return tools.exec('systemctl', ['restart', config.SERVICE_NAME])
 }
 
 /**
  * 获取服务状态
  */
-export function statusXray() {
-    console.log('触发函数: statusXray')
+export function statusProxy() {
+    console.log('触发函数: statusProxy')
     return new Promise(async resolve => {
         // 是否在运行
         const [err, isActive] = await tools.exec('systemctl', ['is-active', config.SERVICE_NAME])
@@ -124,7 +124,7 @@ export function statusXray() {
             return resolve([err1, null])
         }
         // 当前版本
-        const [err2, version] = await tools.exec(config.XRAY_FILE, ['version'])
+        const [err2, version] = await tools.exec(config.PROXY_BIN_FILE, ['-version'])
         if (err2) {
             console.log(err2)
             return resolve([err2, null])
@@ -132,7 +132,7 @@ export function statusXray() {
         const status = {
             active: isActive.trim() === 'active',
             enabled: isEnabled.trim() === 'enabled',
-            version: version.trim().split(' ')[1]
+            version: version.trim().split(' ').slice(0, 2).join(' ')
         }
         resolve([null, status])
     })
@@ -150,13 +150,13 @@ export function testNode(index) {
             return resolve([new Error('超出范围'), null])
         }
         // 删除一个outbound
-        const [err1, res1] = await utils.delOutbound(nodes[index].outbound, 'xray-out')
+        const [err1, res1] = await utils.delOutbound(nodes[index].outbound, 'proxy-out')
         if (err1) {
             console.log(err1)
             return resolve([err1, null])
         }
         // 新增一个outbound
-        const [err2, res2] = await utils.addOutbound(nodes[index].outbound, 'xray-out')
+        const [err2, res2] = await utils.addOutbound(nodes[index].outbound, 'proxy-out')
         if (err2) {
             console.log(err2)
             return resolve([err2, null])
@@ -165,14 +165,14 @@ export function testNode(index) {
         // 调用axios测延迟
         const [err3, delay] = await utils.getDelay(config.DELAYTEST_URL, 10000)
         if (err3) {
-            console.log(err3)
+            console.log(err3.message)
             nodes[index].tips = err3.message
             return resolve([err3, null])
         }
         // 调用axios测速度
         const [err4, speed] = await utils.getSpeed(config.SPEEDTEST_URL, config.SPEEDTEST_URL_SIZE, 20000)
         if (err4) {
-            console.log(err4)
+            console.log(err4.message)
             err4.message = delay + ' ms ' + err4.message
             nodes[index].tips = err4.message
             return resolve([err4, null])
@@ -311,7 +311,7 @@ export function setRoute(i, newRoute) {
     routes[i] = newRoute
     tools.writeFileDebounce(config.ROUTES_FILE, routes)
     // 写入主配置
-    tools.writeFileDebounce(config.XRAY_CONFIG_FILE, generateConfig())
+    tools.writeFileDebounce(config.PROXY_CONFIG_FILE, generateConfig())
     return [null, '设置成功']
 }
 
@@ -327,7 +327,7 @@ export function delRoute(i) {
     routes.splice(i, 1)
     tools.writeFileDebounce(config.ROUTES_FILE, routes)
     // 写入主配置
-    tools.writeFileDebounce(config.XRAY_CONFIG_FILE, generateConfig())
+    tools.writeFileDebounce(config.PROXY_CONFIG_FILE, generateConfig())
     return [null, '删除成功，写入成功']
 }
 
@@ -346,7 +346,7 @@ export function sortRoutes(from, to) {
     routes.splice(to, 0, ...tmp);
     tools.writeFileDebounce(config.ROUTES_FILE, routes)
     // 写入主配置
-    tools.writeFileDebounce(config.XRAY_CONFIG_FILE, generateConfig())
+    tools.writeFileDebounce(config.PROXY_CONFIG_FILE, generateConfig())
     return [null, '排序成功']
 }
 
@@ -502,7 +502,7 @@ export function setDirectList(newDirectList) {
     console.log('触发函数: setDirectList')
     customList[0] = newDirectList
     tools.writeFileDebounce(config.DIRECT_FILE, customList[0].join('\n'))
-    // tools.writeFileDebounce(config.XRAY_CONFIG_FILE, generateConfig())
+    // tools.writeFileDebounce(config.PROXY_CONFIG_FILE, generateConfig())
     return [null, 'OK']
 }
 
@@ -522,7 +522,7 @@ export function setProxyList(newProxyList) {
     console.log('触发函数: setProxyList')
     customList[1] = newProxyList
     tools.writeFileDebounce(config.PROXY_FILE, customList[1].join('\n'))
-    tools.writeFileDebounce(config.XRAY_CONFIG_FILE, generateConfig())
+    tools.writeFileDebounce(config.PROXY_CONFIG_FILE, generateConfig())
     return [null, 'OK']
 }
 
@@ -542,7 +542,7 @@ export function setBlockList(newBlockList) {
     console.log('触发函数: setBlockList')
     customList[2] = newBlockList
     tools.writeFileDebounce(config.BLOCK_FILE, customList[2].join('\n'))
-    tools.writeFileDebounce(config.XRAY_CONFIG_FILE, generateConfig())
+    tools.writeFileDebounce(config.PROXY_CONFIG_FILE, generateConfig())
     return [null, 'OK']
 }
 
@@ -576,7 +576,7 @@ export function setMainNode(index) {
         // 写入节点
         tools.writeFileDebounce(config.NODES_FILE, nodes)
         // 写入主配置
-        tools.writeFileDebounce(config.XRAY_CONFIG_FILE, generateConfig())
+        tools.writeFileDebounce(config.PROXY_CONFIG_FILE, generateConfig())
         resolve([null, '设置成功'])
     })
 }

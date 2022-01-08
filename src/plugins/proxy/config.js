@@ -4,7 +4,7 @@
  */
 
 // 本插件的所有数据存放目录
-export const PLUGIN_DATA_DIR = './data/xray/'
+export const PLUGIN_DATA_DIR = './data/proxy/'
 
 // 直连列表
 export const DIRECT_FILE = PLUGIN_DATA_DIR + 'direct.list'
@@ -24,8 +24,8 @@ export const SUBSCRIBES_FILE = PLUGIN_DATA_DIR + 'subscribes.json'
 // 节点列表
 export const NODES_FILE = PLUGIN_DATA_DIR + 'nodes.json'
 
-// xray配置模板文件
-export const TEMPLATE_FILE = './src/plugins/xray/template.json'
+// 配置模板文件
+export const TEMPLATE_FILE = './src/plugins/proxy/template.json'
 
 
 /**
@@ -33,14 +33,14 @@ export const TEMPLATE_FILE = './src/plugins/xray/template.json'
  * 根据自己系统修改，错误配置将导致本插件无法正常运行
  */
 
-// 你的xray服务名称
+// 你的代理软件服务名称
 export const SERVICE_NAME = 'xray.service'
 
-// 你的xray可执行文件
-export const XRAY_FILE = '/usr/local/bin/xray'
+// 你的代理软件可执行文件
+export const PROXY_BIN_FILE = '/usr/local/bin/xray'
 
-// 你的xray配置文件
-export const XRAY_CONFIG_FILE = '/usr/local/etc/xray/config.json'
+// 你的代理软件配置文件
+export const PROXY_CONFIG_FILE = '/usr/local/etc/xray/config.json'
 
 
 /**

@@ -57,15 +57,6 @@ export function sleep(n = 100) {
 }
 
 /**
- * 解码Base64字符串
- * @param {String} str 欲解码字符串
- * @returns 
- */
-export function base64Decode(str = '') {
-    return (new Buffer.from(str, 'base64')).toString()
-}
-
-/**
  * Promise封装的读取文件操作
  * @param {String} file 文件路径
  */

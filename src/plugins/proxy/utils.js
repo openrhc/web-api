@@ -39,11 +39,22 @@ export function getDelay(url, timeout) {
  * @param {string} timeout 超时时间
  */
 export function getSpeed(url, filesize, timeout) {
-    return new Promise(async (resolve) => {
+    return new Promise(resolve => {
         let timer
         const writer = createWriteStream('/dev/null')
         const startTime = Date.now()
-        const response = await axios({
+        writer.on('finish', () => {
+            const time = Date.now() - startTime
+            const speed = Number((filesize / time).toFixed(2))
+            clearTimeout(timer)
+            resolve([null, speed])
+        })
+        writer.on('error', (err) => {
+            writer.close()
+            clearTimeout(timer)
+            resolve([err, null])
+        })
+        axios({
             url,
             timeout,
             responseType: 'stream',
@@ -56,23 +67,12 @@ export function getSpeed(url, filesize, timeout) {
                 timer = setTimeout(() => {
                     c()
                     writer.close()
-                    resolve([new Error('速率过慢', null)])
+                    resolve([new Error('速率过慢'), null])
                 }, timeout)
             })
         })
-        response.data.pipe(writer)
-        writer.on('finish', () => {
-            const time = Date.now() - startTime
-            const speed = Number((filesize / time).toFixed(2))
-            clearTimeout(timer)
-            resolve([null, speed])
-        })
-        writer.on('error', (err) => {
-            writer.close()
-            clearTimeout(timer)
-            resolve([err, null])
-        })
-
+            .then(res => res.data.pipe(writer))
+            .catch(err => resolve([err, null]))
     })
 }
 
@@ -98,7 +98,7 @@ export function parseNodes(string, from) {
         }
     })
     if (flag_needBase64Decode) {
-        string = tools.base64Decode(string)
+        string = base64Decode(string)
     }
     const rawNodes = string.split('\n').filter(v => v)
     for (const n of rawNodes) {
@@ -116,7 +116,7 @@ export function parseNodes(string, from) {
             name = decodeURIComponent(n.substring(n.indexOf('#') + 1))
             outbound = generateOutbound('trojan', n.substring(9))
         } else if (protocol === 'VMess') {
-            const obj = tools.base64Decode(n.substring(8))
+            const obj = base64Decode(n.substring(8))
             name = JSON.parse(obj).ps
             outbound = generateOutbound('vmess', obj)
         }
@@ -157,11 +157,11 @@ function doOutbound(action, outbound, tag) {
                 }
             ]
         }
-        const [err1] = await tools.writeFile('/tmp/xraytempfile.json', c)
+        const [err1] = await tools.writeFile('/tmp/proxytempfile.json', c)
         if (err1) {
             return resolve([err1, null])
         }
-        const [err2] = await tools.exec(config.XRAY_FILE, ['api', action, '--server=127.0.0.1:10807', '/tmp/xraytempfile.json'])
+        const [err2] = await tools.exec(config.PROXY_BIN_FILE, ['api', action, '--server=127.0.0.1:10807', '/tmp/proxytempfile.json'])
         if (err2) {
             return resolve([err2, null])
         }
@@ -217,7 +217,7 @@ function generateOutbound(proto, sharelink) {
         }
     } else if (proto === 'ss') {
         if (sharelink.indexOf('@') !== -1 && sharelink.indexOf(':') !== -1) {
-            const arr = tools.base64Decode(sharelink.substring(0, sharelink.indexOf('@'))).split(':')
+            const arr = base64Decode(sharelink.substring(0, sharelink.indexOf('@'))).split(':')
             return {
                 "tag": "proxy",
                 "protocol": "shadowsocks",
@@ -238,7 +238,7 @@ function generateOutbound(proto, sharelink) {
                 }
             }
         } else {
-            const arr2 = tools.base64Decode(sharelink.substring(0, sharelink.indexOf('#'))).split(':')
+            const arr2 = base64Decode(sharelink.substring(0, sharelink.indexOf('#'))).split(':')
             return {
                 "tag": "proxy",
                 "protocol": "shadowsocks",
@@ -314,4 +314,13 @@ function replaceName(name) {
         name = name.replace(key, config.REPLACE_KEYWORDS[key])
     }
     return name
+}
+
+/**
+ * 解码Base64字符串
+ * @param {String} str 欲解码字符串
+ * @returns 
+ */
+function base64Decode(str = '') {
+    return (new Buffer.from(str, 'base64')).toString()
 }
