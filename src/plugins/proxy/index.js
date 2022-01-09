@@ -339,15 +339,13 @@ export function delRoute(i) {
  */
 export function sortRoutes(from, to) {
     console.log('触发函数: sortRoutes')
-    if (from < 0 || from >= routes.length || to < 0 || to >= routes.length) {
-        return [new Error('超出范围'), null]
+    const res = utils.doSort(from, to, routes)
+    const [err] = res
+    if (!err) {
+        tools.writeFileDebounce(config.ROUTES_FILE, routes)
+        tools.writeFileDebounce(config.PROXY_CONFIG_FILE, generateConfig())
     }
-    const tmp = routes.splice(from, 1);
-    routes.splice(to, 0, ...tmp);
-    tools.writeFileDebounce(config.ROUTES_FILE, routes)
-    // 写入主配置
-    tools.writeFileDebounce(config.PROXY_CONFIG_FILE, generateConfig())
-    return [null, '排序成功']
+    return res
 }
 
 /**
@@ -386,6 +384,22 @@ export function delNode(i) {
     nodes.splice(i, 1)
     tools.writeFileDebounce(config.NODES_FILE, nodes)
     return [null, '删除成功']
+}
+
+/**
+ * 节点排序
+ * @param {number} from 源索引
+ * @param {number} to 目标索引
+ * @returns 
+ */
+export function sortNodes(from, to) {
+    console.log('触发函数: sortNodes')
+    const res = utils.doSort(from, to, nodes)
+    const [err] = res
+    if (!err) {
+        tools.writeFileDebounce(config.NODES_FILE, nodes)
+    }
+    return res
 }
 
 /**

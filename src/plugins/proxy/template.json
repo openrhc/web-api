@@ -106,7 +106,7 @@
             }
         },
         {
-            "tag": "xray-in",
+            "tag": "proxy-in",
             "port": 10810,
             "protocol": "http",
             "sniffing": {

@@ -43,6 +43,19 @@ router.post('/nodes/add', (req, res) => {
     res.json({ code: 0, data })
 })
 
+// 节点排序
+router.get('/nodes/sort', (req, res) => {
+    const { from, to } = req.query
+    if (!from || !to) {
+        return res.json({ code: -1, msg: '缺少参数' })
+    }
+    const [err, msg] = proxy.sortNodes(Number(from), Number(to))
+    if (err) {
+        return res.json({ code: -1, msg: err.message })
+    }
+    res.json({ code: 0, msg })
+})
+
 // 测试节点
 router.get('/node/:id/test', async (req, res) => {
     const [err, data] = await proxy.testNode(Number(req.params.id))
@@ -172,7 +185,6 @@ router.get('/routes/sort', (req, res) => {
     }
     res.json({ code: 0, msg })
 })
-
 
 // 设置直连列表
 router.get('/directlist/set', (req, res) => {

@@ -324,3 +324,20 @@ function replaceName(name) {
 function base64Decode(str = '') {
     return (new Buffer.from(str, 'base64')).toString()
 }
+
+
+/**
+ * 改变数组中的某个值的位置
+ * @param {number} from 源索引
+ * @param {number} to 目标索引
+ * @param {array} arr 排序对象
+ * @returns 
+ */
+export function doSort(from, to, arr) {
+    if (from < 0 || from >= arr.length || to < 0 || to >= arr.length) {
+        return [new Error('超出范围'), null]
+    }
+    const tmp = arr.splice(from, 1);
+    arr.splice(to, 0, ...tmp);
+    return [null, '排序成功']
+}
