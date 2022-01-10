@@ -3,8 +3,12 @@ import * as utils from './utils.js'
 
 const router = Router()
 
-router.get('/status', (req, res, next) => {
+router.get('/status', async (req, res, next) => {
     const data = utils.getStatus()
+    const [err, mem] = await utils.getMemory()
+    if (mem) {
+        data.mem = mem
+    }
     res.json({ code: 0, data })
 })
 

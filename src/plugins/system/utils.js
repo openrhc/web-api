@@ -56,7 +56,7 @@ export function getTraffic() {
  * 获取系统内存详情
  * @returns 
  */
-export function getSystemMem() {
+export function getMemory() {
     return new Promise(async resolve => {
         const [err, data] = await tools.readFile('/proc/meminfo')
         if (err) {
@@ -78,9 +78,9 @@ export function getSystemMem() {
 }
 
 /**
- * 获取系统温度
+ * 获取CPU温度
  */
-export function getSystemTemp() {
+export function getCpuTemp() {
     return new Promise(async resolve => {
         const [err, data] = await tools.readFile('/sys/class/thermal/thermal_zone0/temp')
         if (err) {
@@ -155,7 +155,7 @@ export function disableService(unit) {
  */
 export function getSystemAllUnits() {
     return new Promise(async resolve => {
-        const [err, res] = tools.exec('systemctl', ['list-unit-files', '--all', '--type', 'service'])
+        const [err, res] = await tools.exec('systemctl', ['list-unit-files', '--all', '--type', 'service'])
         if (err) {
             return resolve([err, null])
         }
@@ -176,8 +176,8 @@ export function getSystemAllUnits() {
  * @returns 
  */
 export function getSystemAllLoadedUnits() {
-    return new Promise((resolve, reject) => {
-        const [err, res] = tools.exec('systemctl', ['list-units', '--all', '--type', 'service'])
+    return new Promise(async resolve => {
+        const [err, res] = await tools.exec('systemctl', ['list-units', '--all', '--type', 'service'])
         if (err) {
             return resolve([err, null])
         }

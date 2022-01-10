@@ -1,4 +1,4 @@
-import { getAllUnit, getSystemAllLoadedUnits, getSystemTemp } from './utils.js'
+import { getAllUnit, getSystemAllLoadedUnits, getCpuTemp } from './utils.js'
 
 // 所有服务单元
 let units = {}
@@ -28,7 +28,7 @@ export function getTempList() {
 }
 
 async function updateTemp() {
-    const [err, temp] = await getSystemTemp()
+    const [err, temp] = await getCpuTemp()
     if (temp) {
         tempList.push(temp)
     }
