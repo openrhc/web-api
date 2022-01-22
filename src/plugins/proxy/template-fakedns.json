@@ -29,13 +29,9 @@
                     "geosite:cn"
                 ]
             },
+            "https://cloudflare-dns.com/dns-query",
             {
-                "address": "127.0.0.1",
-                "port": 5301
-            },
-            {
-                "address": "127.0.0.1",
-                "port": 5302,
+                "address": "https+local://dns.alidns.com/dns-query",
                 "skipFallback": true,
                 "domains": [
                     "geosite:cn"
@@ -123,6 +119,16 @@
             "settings": {
                 "allowTransparent": true
             }
+        },
+        {
+            "tag": "dns-in",
+            "port": 53,
+            "protocol": "dokodemo-door",
+            "settings": {
+                "address": "8.8.8.8",
+                "network": "tcp,udp",
+                "port": 53
+            }
         }
     ],
     "outbounds": [
@@ -155,11 +161,6 @@
             "tag": "dns-out",
             "proxySettings": {
                 "tag": "proxy"
-            },
-            "streamSettings": {
-                "sockopt": {
-                    "mark": 2
-                }
             }
         }
     ],

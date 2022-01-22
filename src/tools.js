@@ -99,7 +99,7 @@ export function writeFile(file = '', data) {
  * @param {number} delay 延迟写入时间
  */
 const timers = {}
-export function writeFileDebounce(file = '', data, delay = 60000) {
+export function writeFileDebounce(file = '', data, delay = 5000) {
     console.log('触发函数: writeFileDebounce', file)
     clearTimeout(timers[file])
     timers[file] = setTimeout(async () => {

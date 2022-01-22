@@ -281,23 +281,26 @@ function generateOutbound(proto, sharelink) {
             },
             "streamSettings": {
                 "network": sharelink.net,
-                "wsSettings": {
-                    "path": sharelink.path
-                },
                 "sockopt": {
                     "mark": 2
                 }
             }
         }
-        if (sharelink.tls) {
+        if (sharelink.tls === 'tls') {
             tmp.streamSettings.security = sharelink.tls
             tmp.streamSettings.tlsSettings = {
                 allowInsecure: false
             }
+            if(sharelink.sni) {
+                tmp.streamSettings.tlsSettings.serverName = sharelink.sni
+            }
         }
-        if (sharelink.host !== 0) {
-            tmp.streamSettings.wsSettings.headers = {
-                Host: sharelink.host
+        if (sharelink.net === 'ws') {
+            tmp.streamSettings.wsSettings = {
+                path: sharelink.path,
+                headers: {
+                    Host: sharelink.host
+                }
             }
         }
         return tmp

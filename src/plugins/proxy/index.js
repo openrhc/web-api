@@ -192,9 +192,7 @@ export function generateConfig() {
     console.log('触发函数: generateConfig')
     const rules = []
     const outbounds = []
-    // 关于基于geosite和geoip的自定义直连、代理列表，需要进行再一次细分，以免直连中的geosite/geoip影响到代理中的域名，反之代理中的geosite/geoip也会影响到直连中的域名，关键在于顺序。
-    // TODO：
-
+    
     // 解析routes中的规则
     routes.forEach(v => {
         // 将routes规则转为客户端可用规则
@@ -282,6 +280,12 @@ export function generateConfig() {
     const proxyIndex = tpl_copy.outbounds.findIndex(v => v.tag === 'proxy')
     if (activeNode && proxyIndex !== -1) {
         tpl_copy.outbounds[proxyIndex] = activeNode.outbound
+    }
+
+    // 临时代码
+    const dnsOut = rules.find(v => v.outboundTag === 'dns-out')
+    if(dnsOut) {
+        dnsOut.port = 53
     }
 
     tpl_copy.routing.rules = rules
