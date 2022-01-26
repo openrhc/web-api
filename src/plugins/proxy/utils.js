@@ -291,14 +291,17 @@ function generateOutbound(proto, sharelink) {
             tmp.streamSettings.tlsSettings = {
                 allowInsecure: false
             }
-            if(sharelink.sni) {
+            if (sharelink.sni) {
                 tmp.streamSettings.tlsSettings.serverName = sharelink.sni
             }
         }
         if (sharelink.net === 'ws') {
-            tmp.streamSettings.wsSettings = {
-                path: sharelink.path,
-                headers: {
+            tmp.streamSettings.wsSettings = {}
+            if (sharelink.path) {
+                tmp.streamSettings.wsSettings.path = sharelink.path
+            }
+            if (sharelink.host) {
+                tmp.streamSettings.wsSettings.headers = {
                     Host: sharelink.host
                 }
             }

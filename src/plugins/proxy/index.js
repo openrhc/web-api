@@ -442,7 +442,7 @@ export function updateSubscribe(i) {
                 console.log(err)
                 return resolve([err, null])
             }
-            nodes.push(...utils.parseNodes(data), subscribe.name)
+            nodes.push(...utils.parseNodes(data, subscribe.name))
         } else {
             return resolve([new Error('不支持的协议', null)])
         }
