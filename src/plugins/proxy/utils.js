@@ -227,7 +227,8 @@ function generateOutbound(proto, sharelink) {
                             address: sharelink.substring(sharelink.indexOf('@') + 1, sharelink.indexOf(':')),
                             method: arr[0],
                             password: arr[1],
-                            port: parseInt(sharelink.substring(sharelink.indexOf(':') + 1, sharelink.indexOf('#')))
+                            port: parseInt(sharelink.substring(sharelink.indexOf(':') + 1, sharelink.indexOf('#'))),
+                            ivCheck: true
                         }
                     ]
                 },
@@ -248,7 +249,8 @@ function generateOutbound(proto, sharelink) {
                             address: arr2[1].split('@')[1],
                             method: arr2[0],
                             password: arr2[1].split('@')[0],
-                            port: parseInt(arr2[2])
+                            port: parseInt(arr2[2]),
+                            ivCheck: true
                         }
                     ]
                 },

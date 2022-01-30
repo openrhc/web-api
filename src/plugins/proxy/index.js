@@ -287,6 +287,10 @@ export function generateConfig() {
     if(dnsOut) {
         dnsOut.port = 53
     }
+    const ntpOut = rules.find(v => v.port === 123)
+    if(ntpOut) {
+        ntpOut.protocol = 'udp'
+    }
 
     tpl_copy.routing.rules = rules
     tpl_copy.outbounds.push(...outbounds)
