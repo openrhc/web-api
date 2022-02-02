@@ -73,12 +73,12 @@ router.get('/subscribes', (req, res) => {
 
 // 设置订阅
 router.get('/subscribe/:id/set', (req, res) => {
-    const { name, url } = req.query
+    const { name, url, include = "", exclude = "" } = req.query
     if (!name || !url) {
         return res.json({ code: -1, msg: '缺少参数' })
     }
     const { id } = req.params
-    const [err, msg] = proxy.setSubscribe(Number(id), { name, url })
+    const [err, msg] = proxy.setSubscribe(Number(id), { name, url, include, exclude })
     if (err) {
         return res.json({ code: -1, msg: err.message })
     }

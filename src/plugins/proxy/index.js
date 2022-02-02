@@ -192,7 +192,7 @@ export function generateConfig() {
     console.log('触发函数: generateConfig')
     const rules = []
     const outbounds = []
-    
+
     // 解析routes中的规则
     routes.forEach(v => {
         // 将routes规则转为客户端可用规则
@@ -284,11 +284,11 @@ export function generateConfig() {
 
     // 临时代码
     const dnsOut = rules.find(v => v.outboundTag === 'dns-out')
-    if(dnsOut) {
+    if (dnsOut) {
         dnsOut.port = 53
     }
     const ntpOut = rules.find(v => v.port === 123)
-    if(ntpOut) {
+    if (ntpOut) {
         ntpOut.protocol = 'udp'
     }
 
@@ -439,7 +439,15 @@ export function updateSubscribe(i) {
                 console.log(err)
                 return resolve([err, null])
             }
-            nodes.push(...utils.parseNodes(data.toString(), subscribe.name))
+            // 3. 筛选节点
+            const _nodes = utils.parseNodes(data.toString(), subscribe.name)
+                .filter(v => {
+                    const includes = subscribe.include.split('|').filter(vv => vv)
+                    const excludes = subscribe.exclude.split('|').filter(vv => vv)
+                    const need = includes.every(vv => v.name.indexOf(vv) !== -1) && excludes.every(vv => v.name.indexOf(vv) === -1)
+                    return need
+                })
+            nodes.push(..._nodes)
         } else if (subscribe.url.match(/^https?:\/\//g)) {
             const [err, data] = await tools.axiosGet(subscribe.url)
             if (err) {
