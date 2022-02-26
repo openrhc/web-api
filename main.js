@@ -17,7 +17,8 @@ app.listen(WEB_PORT, () => {
     console.log(`\nApp running at:`)
     const networks = networkInterfaces()
     Object.values(networks).forEach(interfaces => {
-        const address = interfaces.find(v => v.family === 'IPv4').address
-        console.log(`   - http://${address}:${WEB_PORT}/`)
+        const a = interfaces.find(v => v.family === 'IPv4')
+        if(!a) return
+        console.log(`   - http://${a.address}:${WEB_PORT}/`)
     })
 })
